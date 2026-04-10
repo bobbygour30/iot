@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
-import Dashboard from "../../pages/Dashboard";
+import { Outlet } from "react-router-dom";
 
 const DashboardLayout = () => {
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeMenu, setActiveMenu] = useState('dashboard');
@@ -17,14 +18,16 @@ const DashboardLayout = () => {
         setSidebarCollapsed(true);
       }
     };
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
+
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-gray-50 to-blue-50 overflow-hidden">
-      {/* Mobile Menu Overlay */}
+
       {mobileMenuOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-20 lg:hidden"
@@ -45,16 +48,18 @@ const DashboardLayout = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
+
         {/* Header */}
         <Header 
           setMobileMenuOpen={setMobileMenuOpen}
           activeMenu={activeMenu}
         />
 
-        {/* Page Content */}
-        <div className="flex-1 overflow-y-auto">
-          <Dashboard activeTab={activeMenu === 'dashboard' ? 'thermal' : undefined} />
+        {/* Dynamic Page Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <Outlet />
         </div>
+
       </div>
     </div>
   );
