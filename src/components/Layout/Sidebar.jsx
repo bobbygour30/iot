@@ -26,18 +26,21 @@ import {
   FaUsers,
   FaRobot,
   FaCloudUploadAlt,
-  FaCalendarAlt
+  FaCalendarAlt,
+  FaSignOutAlt
 } from 'react-icons/fa';
+import { useAuth } from '../../context/AuthContext';
 
 const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOpen, setMobileMenuOpen }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useAuth();
 
-const menuItems = [
+  const menuItems = [
     { 
       id: 'dashboard',
       name: 'Dashboard',
-      path: '/',
+      path: '/dashboard',
       icon: <FaTachometerAlt />,
       description: 'Overview & Analytics',
       category: 'Main',
@@ -46,11 +49,6 @@ const menuItems = [
       badge: null,
       isNew: false,
       order: 1,
-      subItems: [
-        { name: 'Main Dashboard', path: '/', icon: <FaChartPie /> },
-        { name: 'Analytics', path: '/analytics', icon: <FaChartLine /> },
-        { name: 'Real-time Monitor', path: '/realtime', icon: <FaBell /> }
-      ]
     },
     { 
       id: 'equipment', 
@@ -64,12 +62,6 @@ const menuItems = [
       badge: { count: 3, type: 'alert', color: 'red' },
       isNew: false,
       order: 2,
-      subItems: [
-        { name: 'All Equipment', path: '/equipment/list' },
-        { name: 'Categories', path: '/equipment/categories' },
-        { name: 'Maintenance Schedule', path: '/equipment/maintenance' },
-        { name: 'Equipment Status', path: '/equipment/status' }
-      ]
     },
     { 
       id: 'indices', 
@@ -83,13 +75,6 @@ const menuItems = [
       badge: { count: 2, type: 'info', color: 'blue' },
       isNew: true,
       order: 3,
-      subItems: [
-        { name: 'Thermal Index', path: '/indices/thermal' },
-        { name: 'AQI Index', path: '/indices/aqi' },
-        { name: 'Acoustic Index', path: '/indices/acoustic' },
-        { name: 'Visual Index', path: '/indices/visual' },
-        { name: 'HPI Score', path: '/indices/hpi' }
-      ]
     },
     { 
       id: 'reports', 
@@ -103,12 +88,6 @@ const menuItems = [
       badge: null,
       isNew: false,
       order: 4,
-      subItems: [
-        { name: 'Daily Reports', path: '/reports/daily' },
-        { name: 'Weekly Reports', path: '/reports/weekly' },
-        { name: 'Monthly Reports', path: '/reports/monthly' },
-        { name: 'Custom Reports', path: '/reports/custom' }
-      ]
     },
     { 
       id: 'alerts', 
@@ -122,11 +101,6 @@ const menuItems = [
       badge: { count: 5, type: 'warning', color: 'orange' },
       isNew: false,
       order: 5,
-      subItems: [
-        { name: 'Active Alerts', path: '/alerts/active' },
-        { name: 'Alert History', path: '/alerts/history' },
-        { name: 'Alert Settings', path: '/alerts/settings' }
-      ]
     },
     { 
       id: 'history', 
@@ -140,11 +114,6 @@ const menuItems = [
       badge: null,
       isNew: false,
       order: 6,
-      subItems: [
-        { name: 'Activity Log', path: '/history/activity' },
-        { name: 'Equipment Log', path: '/history/equipment' },
-        { name: 'User Log', path: '/history/users' }
-      ]
     },
     { 
       id: 'users', 
@@ -158,11 +127,6 @@ const menuItems = [
       badge: null,
       isNew: false,
       order: 7,
-      subItems: [
-        { name: 'All Users', path: '/users/list' },
-        { name: 'Roles & Permissions', path: '/users/roles' },
-        { name: 'Activity Log', path: '/users/activity' }
-      ]
     },
     { 
       id: 'settings', 
@@ -176,68 +140,6 @@ const menuItems = [
       badge: null,
       isNew: false,
       order: 8,
-      subItems: [
-        { name: 'General Settings', path: '/settings/general' },
-        { name: 'Profile Settings', path: '/settings/profile' },
-        { name: 'Security', path: '/settings/security' },
-        { name: 'Notifications', path: '/settings/notifications' },
-        { name: 'API Keys', path: '/settings/api' }
-      ]
-    },
-    { 
-      id: 'backup', 
-      name: 'Backup', 
-      path: '/dashboard/backup', 
-      icon: <FaDatabase />,
-      description: 'Data Backup',
-      category: 'Administration',
-      roles: ['admin'],
-      permissions: ['manage_backup'],
-      badge: null,
-      isNew: false,
-      order: 9,
-      subItems: [
-        { name: 'Create Backup', path: '/backup/create' },
-        { name: 'Restore Backup', path: '/backup/restore' },
-        { name: 'Backup History', path: '/backup/history' }
-      ]
-    },
-    { 
-      id: 'integrations', 
-      name: 'Integrations', 
-      path: '/dashboard/integrations', 
-      icon: <FaRobot />,
-      description: 'Third-party Apps',
-      category: 'Extensions',
-      roles: ['admin'],
-      permissions: ['manage_integrations'],
-      badge: { count: 2, type: 'success', color: 'green' },
-      isNew: true,
-      order: 10,
-      subItems: [
-        { name: 'API Connections', path: '/integrations/api' },
-        { name: 'Webhooks', path: '/integrations/webhooks' },
-        { name: 'External Services', path: '/integrations/services' }
-      ]
-    },
-    { 
-      id: 'support', 
-      name: 'Support', 
-      path: '/dashboard/support', 
-      icon: <FaHeadset />,
-      description: 'Help & Resources',
-      category: 'Support',
-      roles: ['admin', 'manager', 'user'],
-      permissions: ['view_support'],
-      badge: null,
-      isNew: false,
-      order: 11,
-      subItems: [
-        { name: 'FAQ', path: '/support/faq' },
-        { name: 'Contact Support', path: '/support/contact' },
-        { name: 'Documentation', path: '/support/docs' },
-        { name: 'System Status', path: '/support/status' }
-      ]
     },
   ];
 
@@ -248,21 +150,49 @@ const menuItems = [
     }
   };
 
-  const isActive = (path) => location.pathname === path;
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+    if (isMobile && setMobileMenuOpen) {
+      setMobileMenuOpen(false);
+    }
+  };
+
+  const isActive = (path) => {
+    if (path === '/dashboard') {
+      return location.pathname === '/dashboard';
+    }
+    return location.pathname.startsWith(path);
+  };
+
+  // Get user initials
+  const getUserInitials = () => {
+    if (user?.email) {
+      return user.email.charAt(0).toUpperCase();
+    }
+    return 'U';
+  };
+
+  const getUserName = () => {
+    if (user?.email) {
+      return user.email.split('@')[0];
+    }
+    return 'User';
+  };
 
   return (
     <div className={`
       ${sidebarCollapsed ? 'w-20' : 'w-64'} 
       ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
       lg:translate-x-0
-      fixed lg:relative
-      z-30 h-full
+      fixed lg:fixed
+      z-30 h-screen
       bg-white/95 backdrop-blur-sm shadow-xl transition-all duration-300 flex flex-col border-r border-gray-200
     `}>
-      {/* Logo */}
+      {/* Logo Section */}
       <div className="p-5 border-b border-gray-200">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-pink-400 to-purple-400 flex items-center justify-center flex-shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-pink-400 to-purple-400 flex items-center justify-center flex-shrink-0 shadow-md">
             <FaChartBar className="text-white text-xl" />
           </div>
           {!sidebarCollapsed && (
@@ -274,32 +204,109 @@ const menuItems = [
         </div>
       </div>
 
+      {/* User Info Section */}
+      {!sidebarCollapsed && (
+        <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-pink-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold shadow-sm">
+              {getUserInitials()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-800 truncate">{getUserName()}</p>
+              <p className="text-xs text-gray-500 truncate">{user?.role || 'Zone Admin'}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Menu Items */}
       <nav className="flex-1 py-6 overflow-y-auto">
-        {menuItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => handleMenuClick(item.path)}
-            className={`w-full flex items-center gap-3 px-5 py-3 transition-all duration-200 hover:bg-purple-50 hover:text-purple-600 ${
-              isActive(item.path) 
-                ? 'bg-purple-50 text-purple-600 border-r-4 border-purple-500' 
-                : 'text-gray-600'
-            }`}
-          >
-            <span className="text-xl flex-shrink-0">{item.icon}</span>
-            {!sidebarCollapsed && <span className="text-sm font-medium truncate">{item.name}</span>}
-          </button>
-        ))}
+        <div className="px-3 mb-2">
+          {!sidebarCollapsed && (
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-3">Main Menu</p>
+          )}
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => handleMenuClick(item.path)}
+              className={`
+                w-full flex items-center gap-3 px-3 py-2.5 mb-1 rounded-lg transition-all duration-200
+                ${isActive(item.path) 
+                  ? 'bg-gradient-to-r from-purple-50 to-pink-50 text-purple-600 shadow-sm' 
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-purple-600'
+                }
+                ${sidebarCollapsed ? 'justify-center' : ''}
+              `}
+              title={sidebarCollapsed ? item.name : ''}
+            >
+              <span className={`text-xl flex-shrink-0 ${isActive(item.path) ? 'text-purple-500' : 'text-gray-400'}`}>
+                {item.icon}
+              </span>
+              {!sidebarCollapsed && (
+                <div className="flex-1 text-left">
+                  <span className="text-sm font-medium truncate block">{item.name}</span>
+                  <span className="text-xs text-gray-400 truncate block">{item.description}</span>
+                </div>
+              )}
+              {!sidebarCollapsed && item.badge && (
+                <span className={`
+                  text-xs px-1.5 py-0.5 rounded-full font-semibold
+                  ${item.badge.color === 'red' ? 'bg-red-100 text-red-600' : 
+                    item.badge.color === 'blue' ? 'bg-blue-100 text-blue-600' :
+                    item.badge.color === 'green' ? 'bg-green-100 text-green-600' :
+                    'bg-orange-100 text-orange-600'}
+                `}>
+                  {item.badge.count}
+                </span>
+              )}
+              {!sidebarCollapsed && item.isNew && (
+                <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full font-semibold">
+                  New
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </nav>
 
-      {/* Collapse Toggle */}
-      <div className="p-4 border-t border-gray-200 hidden lg:block">
+      {/* Bottom Section with Logout */}
+      <div className="p-4 border-t border-gray-200">
+        {!sidebarCollapsed && (
+          <div className="mb-3 p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <FaCloudUploadAlt className="text-purple-500" />
+              <span className="text-xs font-semibold text-gray-700">Storage</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-1.5">
+              <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: '65%' }}></div>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">65% used</p>
+          </div>
+        )}
+        
+        {/* Logout Button */}
+        <button
+          onClick={handleLogout}
+          className={`
+            w-full flex items-center gap-2 px-3 py-2 mb-2 text-red-600 hover:bg-red-50 rounded-lg transition-all
+            ${sidebarCollapsed ? 'justify-center' : ''}
+          `}
+          title={sidebarCollapsed ? 'Logout' : ''}
+        >
+          <FaSignOutAlt className="text-lg" />
+          {!sidebarCollapsed && <span className="text-sm font-medium">Logout</span>}
+        </button>
+        
+        {/* Collapse Toggle */}
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-all"
+          className={`
+            w-full flex items-center gap-2 px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-all
+            ${sidebarCollapsed ? 'justify-center' : ''}
+          `}
         >
           {sidebarCollapsed ? <FaChevronRight /> : <FaChevronLeft />}
-          {!sidebarCollapsed && <span className="text-sm">Collapse</span>}
+          {!sidebarCollapsed && <span className="text-sm">Collapse Menu</span>}
         </button>
       </div>
     </div>

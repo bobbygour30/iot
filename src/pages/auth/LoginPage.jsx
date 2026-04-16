@@ -1,8 +1,12 @@
+// src/pages/LoginPage.jsx
 import React, { useState } from 'react';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 const LoginPage = () => {
+  const navigate = useNavigate();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -12,6 +16,7 @@ const LoginPage = () => {
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -19,9 +24,10 @@ const LoginPage = () => {
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
+    setApiError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
 
@@ -34,18 +40,14 @@ const LoginPage = () => {
 
     if (Object.keys(newErrors).length === 0) {
       setIsLoading(true);
-      // Simulate API call
-      setTimeout(() => {
-        console.log('Login data:', formData);
-        alert(`Welcome back! Logged in to Zone: ${formData.zoneName}`);
+      try {
+        await login(formData);
+        navigate('/dashboard');
+      } catch (error) {
+        setApiError(error.message || 'Login failed. Please check your credentials.');
+      } finally {
         setIsLoading(false);
-        // Reset form
-        setFormData({
-          email: '',
-          password: '',
-          zoneName: '',
-        });
-      }, 1000);
+      }
     }
   };
 
@@ -65,6 +67,12 @@ const LoginPage = () => {
 
         {/* Login Form Card */}
         <div className="bg-white/60 backdrop-blur-sm rounded-2xl shadow-xl p-6 md:p-8 border border-white/40">
+          {apiError && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
+              {apiError}
+            </div>
+          )}
+          
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Zone Name Field */}
             <div>
@@ -168,20 +176,12 @@ const LoginPage = () => {
             <div className="text-center pt-4 border-t border-gray-200/50">
               <p className="text-gray-500">
                 Don't have an account?{' '}
-                <Link to={'/'} className="text-purple-500 hover:text-purple-600 font-medium transition-colors">
+                <Link to="/register" className="text-purple-500 hover:text-purple-600 font-medium transition-colors">
                   Create Zone Account →
                 </Link>
               </p>
             </div>
           </form>
-        </div>
-
-        {/* Demo Credentials Hint */}
-        <div className="mt-6 text-center">
-          <div className="inline-block bg-white/40 backdrop-blur-sm rounded-lg px-4 py-2 text-xs text-gray-500">
-            <p className="font-medium text-gray-600">Demo Credentials:</p>
-            <p>Email: demo@zone.com | Password: any (min 6 chars) | Zone: any name</p>
-          </div>
         </div>
       </div>
     </div>

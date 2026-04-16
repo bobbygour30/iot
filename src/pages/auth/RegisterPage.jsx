@@ -1,8 +1,12 @@
+// src/pages/RegisterPage.jsx
 import React, { useState } from 'react';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 const RegisterPage = () => {
+  const navigate = useNavigate();
+  const { register } = useAuth();
   const [formData, setFormData] = useState({
     companyName: '',
     state: '',
@@ -19,6 +23,8 @@ const RegisterPage = () => {
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -26,9 +32,10 @@ const RegisterPage = () => {
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
+    setApiError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
 
@@ -52,20 +59,27 @@ const RegisterPage = () => {
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length === 0) {
-      console.log('Registration data:', formData);
-      alert('Registration successful! (Demo)');
-      setFormData({
-        companyName: '',
-        state: '',
-        city: '',
-        pinCode: '',
-        plantName: '',
-        zoneName: '',
-        email: '',
-        phone: '',
-        password: '',
-        confirmPassword: '',
-      });
+      setIsLoading(true);
+      try {
+        const registrationData = {
+          email: formData.email,
+          password: formData.password,
+          phone: formData.phone,
+          companyName: formData.companyName,
+          zoneName: formData.zoneName,
+          plantName: formData.plantName,
+          state: formData.state,
+          city: formData.city,
+          pinCode: formData.pinCode,
+        };
+        
+        await register(registrationData);
+        navigate('/dashboard');
+      } catch (error) {
+        setApiError(error.message || 'Registration failed. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -85,6 +99,12 @@ const RegisterPage = () => {
 
         {/* Main Form Card */}
         <div className="bg-white/60 backdrop-blur-sm rounded-2xl shadow-xl p-6 md:p-8 border border-white/40">
+          {apiError && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
+              {apiError}
+            </div>
+          )}
+          
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Company Section */}
             <div>
@@ -274,9 +294,20 @@ const RegisterPage = () => {
             <div className="pt-4">
               <button
                 type="submit"
-                className="w-full py-3 px-4 bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
+                disabled={isLoading}
+                className="w-full py-3 px-4 bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                Create Zone Account
+                {isLoading ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Creating Account...
+                  </div>
+                ) : (
+                  'Create Zone Account'
+                )}
               </button>
             </div>
 
@@ -284,7 +315,7 @@ const RegisterPage = () => {
             <div className="text-center pt-2">
               <p className="text-gray-500">
                 Already have an account?{' '}
-                <Link to={'/login'} className="text-purple-500 hover:text-purple-600 font-medium transition-colors">
+                <Link to="/login" className="text-purple-500 hover:text-purple-600 font-medium transition-colors">
                   Zone Login →
                 </Link>
               </p>
