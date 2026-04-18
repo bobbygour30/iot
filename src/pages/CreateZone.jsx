@@ -1,5 +1,5 @@
-// src/pages/CreateZone.jsx
-import React, { useState } from 'react';
+// src/pages/CreateZone.jsx (updated with API integration)
+import React, { useState, useEffect } from 'react';
 import { 
   FaIndustry, 
   FaMicrochip, 
@@ -14,7 +14,8 @@ import {
   FaThermometerHalf,
   FaTint,
   FaFlask,
-  FaCog
+  FaCog,
+  FaSpinner
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -23,6 +24,7 @@ const CreateZone = () => {
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
   
   // Plant Data
   const [plants, setPlants] = useState([]);
@@ -40,8 +42,7 @@ const CreateZone = () => {
   const [currentZone, setCurrentZone] = useState({
     name: '',
     area: '',
-    purpose: '',
-    equipment: []
+    purpose: ''
   });
   const [showZoneForm, setShowZoneForm] = useState(false);
   const [selectedZone, setSelectedZone] = useState(null);
@@ -50,7 +51,7 @@ const CreateZone = () => {
   const [devices, setDevices] = useState([]);
   const [currentDevice, setCurrentDevice] = useState({
     deviceId: '',
-    type: 'sensor',
+    type: 'Multi-Sensor',
     model: '',
     location: '',
     thresholds: {
@@ -67,52 +68,103 @@ const CreateZone = () => {
   const plantTypes = ['Manufacturing', 'Processing', 'Assembly', 'Warehouse', 'R&D'];
   const deviceTypes = ['Temperature Sensor', 'Humidity Sensor', 'VOC Sensor', 'Multi-Sensor'];
 
-  const handleAddPlant = () => {
+  // Fetch existing data on component mount
+  useEffect(() => {
+    fetchExistingData();
+  }, []);
+
+  const fetchExistingData = async () => {
+    setFetching(true);
+    try {
+      const response = await api.getPlants();
+      if (response.data && response.data.length > 0) {
+        setPlants(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching plants:', error);
+    } finally {
+      setFetching(false);
+    }
+  };
+
+  const fetchZonesForPlant = async (plantId) => {
+    try {
+      const response = await api.getZonesByPlant(plantId);
+      if (response.data) {
+        setZones(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching zones:', error);
+    }
+  };
+
+  const fetchDevicesForZone = async (zoneId) => {
+    try {
+      const response = await api.getDevicesByZone(zoneId);
+      if (response.data) {
+        setDevices(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching devices:', error);
+    }
+  };
+
+  const handleAddPlant = async () => {
     if (!currentPlant.name.trim()) {
       setMessage({ type: 'error', text: 'Please enter plant name' });
       return;
     }
     
-    const newPlant = {
-      id: Date.now(),
-      ...currentPlant,
-      createdAt: new Date().toISOString()
-    };
-    
-    setPlants([...plants, newPlant]);
-    setCurrentPlant({ name: '', location: '', type: '', description: '' });
-    setMessage({ type: 'success', text: 'Plant created successfully!' });
-    setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    setLoading(true);
+    try {
+      const response = await api.createPlant(currentPlant);
+      const newPlant = response.data;
+      setPlants([newPlant, ...plants]);
+      setCurrentPlant({ name: '', location: '', type: '', description: '' });
+      setMessage({ type: 'success', text: 'Plant created successfully!' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Failed to create plant' });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSelectPlant = (plant) => {
+  const handleSelectPlant = async (plant) => {
     setSelectedPlant(plant);
+    await fetchZonesForPlant(plant._id);
     setShowPlantForm(false);
     setShowZoneForm(true);
     setCurrentStep(2);
   };
 
-  const handleAddZone = () => {
+  const handleAddZone = async () => {
     if (!currentZone.name.trim()) {
       setMessage({ type: 'error', text: 'Please enter zone name' });
       return;
     }
     
-    const newZone = {
-      id: Date.now(),
-      ...currentZone,
-      plantId: selectedPlant.id,
-      createdAt: new Date().toISOString()
-    };
-    
-    setZones([...zones, newZone]);
-    setCurrentZone({ name: '', area: '', purpose: '', equipment: [] });
-    setMessage({ type: 'success', text: 'Zone created successfully!' });
-    setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    setLoading(true);
+    try {
+      const response = await api.createZone({
+        ...currentZone,
+        plantId: selectedPlant._id
+      });
+      const newZone = response.data;
+      setZones([newZone, ...zones]);
+      setCurrentZone({ name: '', area: '', purpose: '' });
+      setMessage({ type: 'success', text: 'Zone created successfully!' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Failed to create zone' });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSelectZone = (zone) => {
+  const handleSelectZone = async (zone) => {
     setSelectedZone(zone);
+    await fetchDevicesForZone(zone._id);
     setShowZoneForm(false);
     setShowDeviceForm(true);
     setCurrentStep(3);
@@ -124,65 +176,52 @@ const CreateZone = () => {
       return;
     }
     
-    const newDevice = {
-      id: currentDevice.deviceId,
-      type: currentDevice.type,
-      model: currentDevice.model,
-      location: currentDevice.location,
-      thresholds: currentDevice.thresholds,
-      plantId: selectedPlant.id,
-      zoneId: selectedZone.id,
-      plantName: selectedPlant.name,
-      zoneName: selectedZone.name,
-      createdAt: new Date().toISOString()
-    };
-    
-    setDevices([...devices, newDevice]);
-    
-    // Here you would make API call to register device
+    setLoading(true);
     try {
-      setLoading(true);
-      // const response = await api.registerDevice({
-      //   deviceId: currentDevice.deviceId,
-      //   zoneId: selectedZone.id,
-      //   plantId: selectedPlant.id,
-      //   thresholds: currentDevice.thresholds
-      // });
+      const response = await api.registerDevice({
+        deviceId: currentDevice.deviceId,
+        type: currentDevice.type,
+        model: currentDevice.model,
+        location: currentDevice.location,
+        thresholds: currentDevice.thresholds,
+        plantId: selectedPlant._id,
+        zoneId: selectedZone._id
+      });
       
+      const newDevice = response.data;
+      setDevices([newDevice, ...devices]);
       setMessage({ type: 'success', text: 'Device added successfully!' });
       setCurrentDevice({
         deviceId: '',
-        type: 'sensor',
+        type: 'Multi-Sensor',
         model: '',
         location: '',
         thresholds: { temperature: 34, humidity: 70, voc: 35000 }
       });
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to add device' });
+      setMessage({ type: 'error', text: error.message || 'Failed to add device' });
     } finally {
       setLoading(false);
     }
-    
-    setTimeout(() => setMessage({ type: '', text: '' }), 3000);
   };
 
-  const handleRemoveDevice = (deviceId) => {
-    setDevices(devices.filter(d => d.id !== deviceId));
+  const handleRemoveDevice = async (deviceId) => {
+    try {
+      await api.deleteDevice(deviceId);
+      setDevices(devices.filter(d => d._id !== deviceId));
+      setMessage({ type: 'success', text: 'Device removed successfully!' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to remove device' });
+    }
   };
 
-  const handleReset = () => {
-    setCurrentStep(1);
-    setPlants([]);
-    setZones([]);
-    setDevices([]);
-    setSelectedPlant(null);
-    setSelectedZone(null);
-    setShowPlantForm(true);
-    setShowZoneForm(false);
-    setShowDeviceForm(false);
-    setCurrentPlant({ name: '', location: '', type: '', description: '' });
-    setCurrentZone({ name: '', area: '', purpose: '', equipment: [] });
-    setCurrentDevice({ deviceId: '', type: 'sensor', model: '', location: '', thresholds: { temperature: 34, humidity: 70, voc: 35000 } });
+  const handleComplete = async () => {
+    setMessage({ type: 'success', text: 'Zone structure created successfully!' });
+    setTimeout(() => {
+      window.location.href = '/dashboard';
+    }, 2000);
   };
 
   const getStepClass = (step) => {
@@ -190,6 +229,17 @@ const CreateZone = () => {
     if (currentStep > step) return 'bg-green-500 text-white';
     return 'bg-gray-300 text-gray-600';
   };
+
+  if (fetching) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <FaSpinner className="animate-spin text-5xl text-purple-500 mx-auto mb-4" />
+          <p className="text-gray-600">Loading your data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4">
@@ -293,9 +343,10 @@ const CreateZone = () => {
               <div className="flex justify-end">
                 <button
                   onClick={handleAddPlant}
-                  className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
+                  disabled={loading}
+                  className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
                 >
-                  <FaPlus /> Create Plant
+                  {loading ? <FaSpinner className="animate-spin" /> : <FaPlus />} Create Plant
                 </button>
               </div>
 
@@ -306,7 +357,7 @@ const CreateZone = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {plants.map((plant) => (
                       <div
-                        key={plant.id}
+                        key={plant._id}
                         className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer bg-gradient-to-r from-gray-50 to-white"
                         onClick={() => handleSelectPlant(plant)}
                       >
@@ -319,6 +370,10 @@ const CreateZone = () => {
                             </div>
                             {plant.location && <p className="text-sm text-gray-500">📍 {plant.location}</p>}
                             {plant.description && <p className="text-sm text-gray-500 text-xs mt-1">{plant.description}</p>}
+                            <div className="flex gap-3 mt-2 text-xs text-gray-500">
+                              <span>🏭 Zones: {plant.zonesCount || 0}</span>
+                              <span>📟 Devices: {plant.devicesCount || 0}</span>
+                            </div>
                           </div>
                           <button className="text-green-500 hover:text-green-600">
                             <FaArrowRight />
@@ -344,6 +399,7 @@ const CreateZone = () => {
                       setShowZoneForm(false);
                       setShowPlantForm(true);
                       setCurrentStep(1);
+                      setSelectedPlant(null);
                     }}
                     className="text-white hover:bg-white/20 p-2 rounded-lg transition-all"
                   >
@@ -399,9 +455,10 @@ const CreateZone = () => {
               <div className="flex justify-end">
                 <button
                   onClick={handleAddZone}
-                  className="px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
+                  disabled={loading}
+                  className="px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
                 >
-                  <FaPlus /> Create Zone
+                  {loading ? <FaSpinner className="animate-spin" /> : <FaPlus />} Create Zone
                 </button>
               </div>
 
@@ -412,7 +469,7 @@ const CreateZone = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {zones.map((zone) => (
                       <div
-                        key={zone.id}
+                        key={zone._id}
                         className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer bg-gradient-to-r from-gray-50 to-white"
                         onClick={() => handleSelectZone(zone)}
                       >
@@ -424,6 +481,9 @@ const CreateZone = () => {
                             </div>
                             {zone.area && <p className="text-sm text-gray-500">📍 {zone.area}</p>}
                             {zone.purpose && <p className="text-sm text-gray-500 text-xs mt-1">🎯 {zone.purpose}</p>}
+                            <div className="mt-2 text-xs text-gray-500">
+                              <span>📟 Devices: {zone.devicesCount || 0}</span>
+                            </div>
                           </div>
                           <button className="text-green-500 hover:text-green-600">
                             <FaArrowRight />
@@ -449,6 +509,7 @@ const CreateZone = () => {
                       setShowDeviceForm(false);
                       setShowZoneForm(true);
                       setCurrentStep(2);
+                      setSelectedZone(null);
                     }}
                     className="text-white hover:bg-white/20 p-2 rounded-lg transition-all"
                   >
@@ -566,9 +627,9 @@ const CreateZone = () => {
                   <button
                     onClick={handleAddDevice}
                     disabled={loading}
-                    className="px-6 py-2 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
+                    className="px-6 py-2 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
                   >
-                    <FaPlus /> Add Device
+                    {loading ? <FaSpinner className="animate-spin" /> : <FaPlus />} Add Device
                   </button>
                 </div>
               </div>
@@ -581,12 +642,12 @@ const CreateZone = () => {
                   </h3>
                   <div className="space-y-3">
                     {devices.map((device) => (
-                      <div key={device.id} className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-all">
+                      <div key={device._id} className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-all">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
                               <FaCog className="text-green-500" />
-                              <span className="font-mono font-semibold text-gray-800">{device.id}</span>
+                              <span className="font-mono font-semibold text-gray-800">{device.deviceId}</span>
                               <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full">{device.type}</span>
                               {device.model && <span className="text-xs text-gray-500">{device.model}</span>}
                             </div>
@@ -607,7 +668,7 @@ const CreateZone = () => {
                             {device.location && <p className="text-xs text-gray-500 mt-2">📍 {device.location}</p>}
                           </div>
                           <button
-                            onClick={() => handleRemoveDevice(device.id)}
+                            onClick={() => handleRemoveDevice(device._id)}
                             className="text-red-500 hover:text-red-600 p-2"
                           >
                             <FaTrash />
@@ -623,19 +684,23 @@ const CreateZone = () => {
               {devices.length > 0 && (
                 <div className="mt-8 flex justify-end gap-3">
                   <button
-                    onClick={handleReset}
+                    onClick={() => {
+                      setCurrentStep(1);
+                      setShowDeviceForm(false);
+                      setShowPlantForm(true);
+                      setSelectedPlant(null);
+                      setSelectedZone(null);
+                      setPlants([]);
+                      setZones([]);
+                      setDevices([]);
+                      fetchExistingData();
+                    }}
                     className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all"
                   >
                     Start Over
                   </button>
                   <button
-                    onClick={() => {
-                      setMessage({ type: 'success', text: 'Zone structure created successfully!' });
-                      setTimeout(() => {
-                        // Navigate to dashboard or reset
-                        window.location.href = '/dashboard';
-                      }, 2000);
-                    }}
+                    onClick={handleComplete}
                     className="px-6 py-2 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
                   >
                     <FaCheck /> Complete Setup

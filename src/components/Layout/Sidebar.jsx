@@ -305,11 +305,7 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
                   {item.badge.count}
                 </span>
               )}
-              {!sidebarCollapsed && item.isNew && (
-                <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full font-semibold">
-                  New
-                </span>
-              )}
+              
             </button>
           ))}
         </div>
