@@ -8,16 +8,18 @@ const RegisterPage = () => {
   const navigate = useNavigate();
   const { register } = useAuth();
   const [formData, setFormData] = useState({
-    companyName: '',
-    state: '',
-    city: '',
-    pinCode: '',
-    plantName: '',
-    zoneName: '',
+    firstName: '',
+    lastName: '',
     email: '',
     phone: '',
     password: '',
     confirmPassword: '',
+    companyName: '',
+    zoneName: '',
+    address: '',
+    state: '',
+    city: '',
+    pinCode: '',
   });
 
   const [errors, setErrors] = useState({});
@@ -39,13 +41,16 @@ const RegisterPage = () => {
     e.preventDefault();
     const newErrors = {};
 
+    // Validation
+    if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
+    if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
     if (!formData.companyName.trim()) newErrors.companyName = 'Company name is required';
+    if (!formData.zoneName.trim()) newErrors.zoneName = 'Zone name is required';
+    if (!formData.address.trim()) newErrors.address = 'Address is required';
     if (!formData.state.trim()) newErrors.state = 'State is required';
     if (!formData.city.trim()) newErrors.city = 'City is required';
     if (!formData.pinCode.trim()) newErrors.pinCode = 'PIN code is required';
     else if (!/^\d{6}$/.test(formData.pinCode)) newErrors.pinCode = 'PIN code must be 6 digits';
-    if (!formData.plantName.trim()) newErrors.plantName = 'Plant name is required';
-    if (!formData.zoneName.trim()) newErrors.zoneName = 'Zone name is required';
     if (!formData.email.trim()) newErrors.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
     if (!formData.phone.trim()) newErrors.phone = 'Phone is required';
@@ -62,12 +67,14 @@ const RegisterPage = () => {
       setIsLoading(true);
       try {
         const registrationData = {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
           email: formData.email,
           password: formData.password,
           phone: formData.phone,
           companyName: formData.companyName,
           zoneName: formData.zoneName,
-          plantName: formData.plantName,
+          address: formData.address,
           state: formData.state,
           city: formData.city,
           pinCode: formData.pinCode,
@@ -93,8 +100,8 @@ const RegisterPage = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-gray-700">Zone Access Registration</h1>
-          <p className="text-gray-500 mt-2">Create your zone-level account</p>
+          <h1 className="text-3xl font-bold text-gray-700">Company Registration</h1>
+          <p className="text-gray-500 mt-2">Create your company account</p>
         </div>
 
         {/* Main Form Card */}
@@ -125,75 +132,6 @@ const RegisterPage = () => {
                   />
                   {errors.companyName && <p className="text-xs text-pink-500 mt-1">{errors.companyName}</p>}
                 </div>
-              </div>
-            </div>
-
-            {/* Location Section */}
-            <div>
-              <h2 className="text-lg font-semibold text-gray-600 mb-4 flex items-center gap-2">
-                <span className="w-1 h-6 bg-blue-300 rounded-full"></span>
-                Location Details
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">State *</label>
-                  <input
-                    type="text"
-                    name="state"
-                    value={formData.state}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 rounded-xl border border-blue-200 bg-blue-50/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all"
-                    placeholder="Enter state"
-                  />
-                  {errors.state && <p className="text-xs text-pink-500 mt-1">{errors.state}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">City *</label>
-                  <input
-                    type="text"
-                    name="city"
-                    value={formData.city}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 rounded-xl border border-blue-200 bg-blue-50/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all"
-                    placeholder="Enter city"
-                  />
-                  {errors.city && <p className="text-xs text-pink-500 mt-1">{errors.city}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">PIN Code *</label>
-                  <input
-                    type="text"
-                    name="pinCode"
-                    value={formData.pinCode}
-                    onChange={handleChange}
-                    maxLength={6}
-                    className="w-full px-4 py-2 rounded-xl border border-blue-200 bg-blue-50/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all"
-                    placeholder="6-digit PIN"
-                  />
-                  {errors.pinCode && <p className="text-xs text-pink-500 mt-1">{errors.pinCode}</p>}
-                </div>
-              </div>
-            </div>
-
-            {/* Plant & Zone Section */}
-            <div>
-              <h2 className="text-lg font-semibold text-gray-600 mb-4 flex items-center gap-2">
-                <span className="w-1 h-6 bg-green-300 rounded-full"></span>
-                Facility Details
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Plant Name *</label>
-                  <input
-                    type="text"
-                    name="plantName"
-                    value={formData.plantName}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 rounded-xl border border-green-200 bg-green-50/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-300 transition-all"
-                    placeholder="Enter plant name"
-                  />
-                  {errors.plantName && <p className="text-xs text-pink-500 mt-1">{errors.plantName}</p>}
-                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">Zone Name *</label>
                   <input
@@ -201,7 +139,7 @@ const RegisterPage = () => {
                     name="zoneName"
                     value={formData.zoneName}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 rounded-xl border border-green-200 bg-green-50/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-300 transition-all"
+                    className="w-full px-4 py-2 rounded-xl border border-pink-200 bg-pink-50/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-300 transition-all"
                     placeholder="Enter zone name"
                   />
                   {errors.zoneName && <p className="text-xs text-pink-500 mt-1">{errors.zoneName}</p>}
@@ -209,13 +147,98 @@ const RegisterPage = () => {
               </div>
             </div>
 
-            {/* User Details Section */}
+            {/* Location Section with Address Field */}
+            <div>
+              <h2 className="text-lg font-semibold text-gray-600 mb-4 flex items-center gap-2">
+                <span className="w-1 h-6 bg-blue-300 rounded-full"></span>
+                Location Details
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Address *</label>
+                  <textarea
+                    name="address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    rows="2"
+                    className="w-full px-4 py-2 rounded-xl border border-blue-200 bg-blue-50/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all resize-none"
+                    placeholder="Enter complete address"
+                  />
+                  {errors.address && <p className="text-xs text-pink-500 mt-1">{errors.address}</p>}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">State *</label>
+                    <input
+                      type="text"
+                      name="state"
+                      value={formData.state}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2 rounded-xl border border-blue-200 bg-blue-50/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all"
+                      placeholder="Enter state"
+                    />
+                    {errors.state && <p className="text-xs text-pink-500 mt-1">{errors.state}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">City *</label>
+                    <input
+                      type="text"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2 rounded-xl border border-blue-200 bg-blue-50/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all"
+                      placeholder="Enter city"
+                    />
+                    {errors.city && <p className="text-xs text-pink-500 mt-1">{errors.city}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">PIN Code *</label>
+                    <input
+                      type="text"
+                      name="pinCode"
+                      value={formData.pinCode}
+                      onChange={handleChange}
+                      maxLength={6}
+                      className="w-full px-4 py-2 rounded-xl border border-blue-200 bg-blue-50/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all"
+                      placeholder="6-digit PIN"
+                    />
+                    {errors.pinCode && <p className="text-xs text-pink-500 mt-1">{errors.pinCode}</p>}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* User Credentials Section with First Name and Last Name */}
             <div>
               <h2 className="text-lg font-semibold text-gray-600 mb-4 flex items-center gap-2">
                 <span className="w-1 h-6 bg-purple-300 rounded-full"></span>
                 User Credentials
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">First Name *</label>
+                  <input
+                    type="text"
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 rounded-xl border border-purple-200 bg-purple-50/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-300 transition-all"
+                    placeholder="Enter first name"
+                  />
+                  {errors.firstName && <p className="text-xs text-pink-500 mt-1">{errors.firstName}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Last Name *</label>
+                  <input
+                    type="text"
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 rounded-xl border border-purple-200 bg-purple-50/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-300 transition-all"
+                    placeholder="Enter last name"
+                  />
+                  {errors.lastName && <p className="text-xs text-pink-500 mt-1">{errors.lastName}</p>}
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">Email Address *</label>
                   <input
@@ -306,7 +329,7 @@ const RegisterPage = () => {
                     Creating Account...
                   </div>
                 ) : (
-                  'Create Zone Account'
+                  'Create Account'
                 )}
               </button>
             </div>
@@ -316,7 +339,7 @@ const RegisterPage = () => {
               <p className="text-gray-500">
                 Already have an account?{' '}
                 <Link to="/login" className="text-purple-500 hover:text-purple-600 font-medium transition-colors">
-                  Zone Login →
+                   Login →
                 </Link>
               </p>
             </div>

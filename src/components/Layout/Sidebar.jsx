@@ -36,6 +36,7 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
   const location = useLocation();
   const { user, logout } = useAuth();
 
+  // Only these 3 menus are active
   const menuItems = [
     { 
       id: 'dashboard',
@@ -51,30 +52,17 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
       order: 1,
     },
     { 
-      id: 'equipment', 
-      name: 'Equipment', 
-      path: '/dashboard/equipment', 
-      icon: <FaMicrochip />,
-      description: 'Manage Devices',
-      category: 'Assets',
-      roles: ['admin', 'manager', 'technician'],
-      permissions: ['view_equipment', 'edit_equipment'],
-      badge: { count: 3, type: 'alert', color: 'red' },
-      isNew: false,
-      order: 2,
-    },
-    { 
-      id: 'indices', 
-      name: 'Indices', 
-      path: '/dashboard/indices', 
-      icon: <FaChartLine />,
-      description: 'KPIs & Metrics',
-      category: 'Analytics',
+      id: 'createZone', 
+      name: 'Create Zone', 
+      path: '/dashboard/create-zone', 
+      icon: <FaPlusCircle />,
+      description: 'Create New Zone',
+      category: 'Management',
       roles: ['admin', 'manager'],
-      permissions: ['view_indices'],
-      badge: { count: 2, type: 'info', color: 'blue' },
+      permissions: ['create_zone'],
+      badge: null,
       isNew: true,
-      order: 3,
+      order: 2,
     },
     { 
       id: 'reports', 
@@ -87,60 +75,126 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
       permissions: ['view_reports', 'download_reports'],
       badge: null,
       isNew: false,
-      order: 4,
+      order: 3,
     },
-    { 
-      id: 'alerts', 
-      name: 'Alerts', 
-      path: '/dashboard/alerts', 
-      icon: <FaExclamationTriangle />,
-      description: 'System Notifications',
-      category: 'Monitoring',
-      roles: ['admin', 'manager'],
-      permissions: ['view_alerts'],
-      badge: { count: 5, type: 'warning', color: 'orange' },
-      isNew: false,
-      order: 5,
-    },
-    { 
-      id: 'history', 
-      name: 'History', 
-      path: '/dashboard/history', 
-      icon: <FaHistory />,
-      description: 'Audit Logs',
-      category: 'Data',
-      roles: ['admin'],
-      permissions: ['view_history'],
-      badge: null,
-      isNew: false,
-      order: 6,
-    },
-    { 
-      id: 'users', 
-      name: 'Users', 
-      path: '/dashboard/users', 
-      icon: <FaUsers />,
-      description: 'User Management',
-      category: 'Administration',
-      roles: ['admin'],
-      permissions: ['manage_users'],
-      badge: null,
-      isNew: false,
-      order: 7,
-    },
-    { 
-      id: 'settings', 
-      name: 'Settings', 
-      path: '/dashboard/settings', 
-      icon: <FaCog />,
-      description: 'System Preferences',
-      category: 'Administration',
-      roles: ['admin'],
-      permissions: ['manage_settings'],
-      badge: null,
-      isNew: false,
-      order: 8,
-    },
+    // ALL OTHER MENUS ARE COMMENTED OUT
+    // { 
+    //   id: 'equipment', 
+    //   name: 'Equipment', 
+    //   path: '/dashboard/equipment', 
+    //   icon: <FaMicrochip />,
+    //   description: 'Manage Devices',
+    //   category: 'Assets',
+    //   roles: ['admin', 'manager', 'technician'],
+    //   permissions: ['view_equipment', 'edit_equipment'],
+    //   badge: { count: 3, type: 'alert', color: 'red' },
+    //   isNew: false,
+    //   order: 4,
+    // },
+    // { 
+    //   id: 'indices', 
+    //   name: 'Indices', 
+    //   path: '/dashboard/indices', 
+    //   icon: <FaChartLine />,
+    //   description: 'KPIs & Metrics',
+    //   category: 'Analytics',
+    //   roles: ['admin', 'manager'],
+    //   permissions: ['view_indices'],
+    //   badge: { count: 2, type: 'info', color: 'blue' },
+    //   isNew: true,
+    //   order: 5,
+    // },
+    // { 
+    //   id: 'alerts', 
+    //   name: 'Alerts', 
+    //   path: '/dashboard/alerts', 
+    //   icon: <FaExclamationTriangle />,
+    //   description: 'System Notifications',
+    //   category: 'Monitoring',
+    //   roles: ['admin', 'manager'],
+    //   permissions: ['view_alerts'],
+    //   badge: { count: 5, type: 'warning', color: 'orange' },
+    //   isNew: false,
+    //   order: 6,
+    // },
+    // { 
+    //   id: 'history', 
+    //   name: 'History', 
+    //   path: '/dashboard/history', 
+    //   icon: <FaHistory />,
+    //   description: 'Audit Logs',
+    //   category: 'Data',
+    //   roles: ['admin'],
+    //   permissions: ['view_history'],
+    //   badge: null,
+    //   isNew: false,
+    //   order: 7,
+    // },
+    // { 
+    //   id: 'users', 
+    //   name: 'Users', 
+    //   path: '/dashboard/users', 
+    //   icon: <FaUsers />,
+    //   description: 'User Management',
+    //   category: 'Administration',
+    //   roles: ['admin'],
+    //   permissions: ['manage_users'],
+    //   badge: null,
+    //   isNew: false,
+    //   order: 8,
+    // },
+    // { 
+    //   id: 'settings', 
+    //   name: 'Settings', 
+    //   path: '/dashboard/settings', 
+    //   icon: <FaCog />,
+    //   description: 'System Preferences',
+    //   category: 'Administration',
+    //   roles: ['admin'],
+    //   permissions: ['manage_settings'],
+    //   badge: null,
+    //   isNew: false,
+    //   order: 9,
+    // },
+    // { 
+    //   id: 'backup', 
+    //   name: 'Backup', 
+    //   path: '/dashboard/backup', 
+    //   icon: <FaDatabase />,
+    //   description: 'Data Backup',
+    //   category: 'Administration',
+    //   roles: ['admin'],
+    //   permissions: ['manage_backup'],
+    //   badge: null,
+    //   isNew: false,
+    //   order: 10,
+    // },
+    // { 
+    //   id: 'integrations', 
+    //   name: 'Integrations', 
+    //   path: '/dashboard/integrations', 
+    //   icon: <FaRobot />,
+    //   description: 'Third-party Apps',
+    //   category: 'Extensions',
+    //   roles: ['admin'],
+    //   permissions: ['manage_integrations'],
+    //   badge: { count: 2, type: 'success', color: 'green' },
+    //   isNew: true,
+    //   order: 11,
+    // },
+    // { 
+    //   id: 'support', 
+    //   name: 'Support', 
+    //   path: '/dashboard/support', 
+    //   icon: <FaHeadset />,
+    //   description: 'Help & Resources',
+    //   category: 'Support',
+    //   roles: ['admin', 'manager', 'user'],
+    //   permissions: ['view_support'],
+    //   badge: null,
+    //   isNew: false,
+    //   order: 12,
+    // },
   ];
 
   const handleMenuClick = (path) => {
@@ -167,6 +221,9 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
 
   // Get user initials
   const getUserInitials = () => {
+    if (user?.firstName) {
+      return user.firstName.charAt(0).toUpperCase();
+    }
     if (user?.email) {
       return user.email.charAt(0).toUpperCase();
     }
@@ -174,6 +231,9 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
   };
 
   const getUserName = () => {
+    if (user?.firstName) {
+      return user.firstName;
+    }
     if (user?.email) {
       return user.email.split('@')[0];
     }
@@ -204,20 +264,6 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
         </div>
       </div>
 
-      {/* User Info Section */}
-      {!sidebarCollapsed && (
-        <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-pink-50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold shadow-sm">
-              {getUserInitials()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-800 truncate">{getUserName()}</p>
-              <p className="text-xs text-gray-500 truncate">{user?.role || 'Zone Admin'}</p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Menu Items */}
       <nav className="flex-1 py-6 overflow-y-auto">
@@ -269,21 +315,8 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
         </div>
       </nav>
 
-      {/* Bottom Section with Logout */}
+      {/* Bottom Section with Logout (Storage section removed) */}
       <div className="p-4 border-t border-gray-200">
-        {!sidebarCollapsed && (
-          <div className="mb-3 p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <FaCloudUploadAlt className="text-purple-500" />
-              <span className="text-xs font-semibold text-gray-700">Storage</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-1.5">
-              <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: '65%' }}></div>
-            </div>
-            <p className="text-xs text-gray-500 mt-1">65% used</p>
-          </div>
-        )}
-        
         {/* Logout Button */}
         <button
           onClick={handleLogout}

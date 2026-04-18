@@ -20,11 +20,14 @@ import {
   FaClock,
   FaArrowUp,
   FaArrowDown,
-  FaMinus
+  FaMinus,
+  FaCompress
 } from 'react-icons/fa';
 import {
   LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell
 } from 'recharts';
+import * as XLSX from 'xlsx';
+import html2canvas from 'html2canvas';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('thermal');
@@ -40,6 +43,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -50,6 +54,7 @@ const Dashboard = () => {
 
   // Fetch sensor data
   const fetchSensorData = async () => {
+    setLoading(true);
     try {
       const response = await fetch('https://sensor-six-iota.vercel.app/api/sensors');
       if (!response.ok) throw new Error('Failed to fetch data');
@@ -70,6 +75,93 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Download data as Excel/CSV
+  const handleDownload = () => {
+    try {
+      // Prepare data for export
+      const exportData = sensorData.map(item => ({
+        'Device ID': item.device_id,
+        'Temperature (°C)': item.temperature,
+        'Humidity (%)': item.humidity,
+        'VOC (ppb)': item.voc,
+        'Timestamp': new Date(item.created_at).toLocaleString()
+      }));
+
+      // Create worksheet
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      
+      // Auto-size columns
+      const colWidths = [
+        { wch: 20 }, // Device ID
+        { wch: 15 }, // Temperature
+        { wch: 15 }, // Humidity
+        { wch: 15 }, // VOC
+        { wch: 25 }  // Timestamp
+      ];
+      ws['!cols'] = colWidths;
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Sensor Data');
+
+      // Generate filename with current date
+      const filename = `sensor_data_${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      // Download file
+      XLSX.writeFile(wb, filename);
+      
+      // Show success message
+      setError(null);
+      const successMsg = document.createElement('div');
+      successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      successMsg.innerHTML = '✅ Data downloaded successfully!';
+      document.body.appendChild(successMsg);
+      setTimeout(() => successMsg.remove(), 3000);
+    } catch (err) {
+      console.error('Download error:', err);
+      const errorMsg = document.createElement('div');
+      errorMsg.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      errorMsg.innerHTML = '❌ Failed to download data';
+      document.body.appendChild(errorMsg);
+      setTimeout(() => errorMsg.remove(), 3000);
+    }
+  };
+
+  // Toggle fullscreen for chart
+  const toggleFullscreen = () => {
+    const chartElement = document.getElementById('chart-container');
+    if (!chartElement) return;
+
+    if (!isFullscreen) {
+      if (chartElement.requestFullscreen) {
+        chartElement.requestFullscreen();
+      } else if (chartElement.webkitRequestFullscreen) {
+        chartElement.webkitRequestFullscreen();
+      } else if (chartElement.msRequestFullscreen) {
+        chartElement.msRequestFullscreen();
+      }
+      setIsFullscreen(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
+      setIsFullscreen(false);
+    }
+  };
+
+  // Listen for fullscreen change events
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
   // Process sensor data for charts
   const processChartData = () => {
     if (!sensorData.length) return [];
@@ -78,7 +170,7 @@ const Dashboard = () => {
       time: new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       temperature: item.temperature,
       humidity: item.humidity,
-      voc: item.voc > 50000 ? 50000 : item.voc, // Cap VOC for better visualization
+      voc: item.voc > 50000 ? 50000 : item.voc,
       rawTime: new Date(item.created_at)
     }));
   };
@@ -201,29 +293,9 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
-      {/* Welcome Banner with Live Status */}
-      <div className="bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 rounded-2xl p-4 sm:p-6 mb-6 text-white shadow-xl">
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-bold">Welcome back, John! 👋</h2>
-            <p className="text-purple-100 mt-1">Real-time sensor monitoring dashboard</p>
-            <div className="flex items-center gap-2 mt-3 text-xs bg-white/20 rounded-full px-3 py-1 w-fit">
-              <FaClock className="text-xs" />
-              <span>Last update: {lastUpdate.toLocaleTimeString()}</span>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="bg-white/20 rounded-lg px-3 py-1 text-xs">
-              Live Data
-            </div>
-            <div className="text-xs mt-2 opacity-75">
-              Auto-refresh: 30s
-            </div>
-          </div>
-        </div>
-      </div>
+      
 
-      {/* Stats Cards with Real Data */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100">
           <div className="flex items-center justify-between mb-2">
@@ -335,7 +407,7 @@ const Dashboard = () => {
       </div>
 
       {/* Main Chart Area with Recharts */}
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden mb-6">
+      <div id="chart-container" className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden mb-6 transition-all">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 sm:p-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
           <div>
             <h3 className="text-base sm:text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -345,11 +417,28 @@ const Dashboard = () => {
             <p className="text-xs sm:text-sm text-gray-500">Live monitoring • {sensorData.length} readings collected</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={fetchSensorData} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors" title="Refresh">
+            <button 
+              onClick={fetchSensorData} 
+              disabled={loading}
+              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50" 
+              title="Refresh Data"
+            >
               <FaSpinner className={loading ? "animate-spin" : ""} />
             </button>
-            <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"><FaFileDownload /></button>
-            <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"><FaExpand /></button>
+            <button 
+              onClick={handleDownload} 
+              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors" 
+              title="Download Data as Excel"
+            >
+              <FaFileDownload />
+            </button>
+            <button 
+              onClick={toggleFullscreen} 
+              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors" 
+              title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            >
+              {isFullscreen ? <FaCompress /> : <FaExpand />}
+            </button>
           </div>
         </div>
 
@@ -385,7 +474,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Analytics Tabs with Real Data */}
+      {/* Analytics Tabs */}
       <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
         <div className="border-b border-gray-200 bg-gray-50/50 overflow-x-auto">
           <div className="flex min-w-max sm:min-w-0">
@@ -476,13 +565,13 @@ const Dashboard = () => {
                     <span className={`font-semibold ${reading.temperature > thresholdTemp ? 'text-red-600' : 'text-gray-700'}`}>
                       {reading.temperature}°C
                     </span>
-                  </td>
+                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">{reading.humidity}%</td>
                   <td className="px-4 py-3 text-sm">
                     <span className={`${reading.voc > thresholdVOC ? 'text-red-600 font-semibold' : 'text-gray-700'}`}>
                       {reading.voc > 50000 ? '>50k' : reading.voc}
                     </span>
-                  </td>
+                   </td>
                   <td className="px-4 py-3 text-xs text-gray-500">{new Date(reading.created_at).toLocaleString()}</td>
                 </tr>
               ))}

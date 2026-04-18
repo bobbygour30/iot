@@ -13,6 +13,7 @@ import Alerts from "./pages/Alerts";
 import History from "./pages/History";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
+import CreateZone from './pages/CreateZone';
 // import Integrations from "./pages/Integrations";
 // import Support from "./pages/Support";
 
@@ -37,6 +38,7 @@ const App = () => {
           >
             <Route index element={<Dashboard />} />
             <Route path="equipment" element={<Equipment />} />
+            <Route path="create-zone" element={<CreateZone />} />
             <Route path="indices" element={<Indices />} />
             <Route path="reports" element={<Reports />} />
             <Route path="alerts" element={<Alerts />} />
