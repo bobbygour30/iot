@@ -1,21 +1,22 @@
-import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
-import RegisterPage from "./pages/auth/RegisterPage";
-import LoginPage from "./pages/auth/LoginPage";
-import DashboardLayout from "./components/Layout/DashboardLayout";
-import ProtectedRoute from "./components/ProtectedRoute";
-import Equipment from "./pages/Equipment";
-import Dashboard from "./pages/Dashboard";
-import Indices from "./pages/Indices";
-import Reports from "./pages/Reports";
-import Alerts from "./pages/Alerts";
-import History from "./pages/History";
-import Users from "./pages/Users";
-import Settings from "./pages/Settings";
+// src/App.jsx
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import LoginPage from './pages/auth/LoginPage';
+import RegisterPage from './pages/auth/RegisterPage';
+import Dashboard from './pages/Dashboard';
 import CreateZone from './pages/CreateZone';
-// import Integrations from "./pages/Integrations";
-// import Support from "./pages/Support";
+import Reports from './pages/Reports';
+import ProtectedRoute from './components/ProtectedRoute';
+import UserLayout from './components/Layout/UserLayout';
+
+// Admin imports
+import AdminLayout from './components/Layout/AdminLayout';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import UsersManagement from './pages/admin/UsersManagement';
+import ZonesManagement from './pages/admin/ZonesManagement';
+import PlantsManagement from './pages/admin/PlantsManagement';
+import DevicesManagement from './pages/admin/DevicesManagement';
 
 const App = () => {
   return (
@@ -23,33 +24,35 @@ const App = () => {
       <AuthProvider>
         <Routes>
           {/* Public Routes */}
-          <Route path="/" element={<Navigate to="/register" replace />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Protected Routes */}
+          {/* User Dashboard Routes with Layout - Protected */}
           <Route
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <DashboardLayout />
+                <UserLayout />
               </ProtectedRoute>
             }
           >
             <Route index element={<Dashboard />} />
-            <Route path="equipment" element={<Equipment />} />
             <Route path="create-zone" element={<CreateZone />} />
-            <Route path="indices" element={<Indices />} />
             <Route path="reports" element={<Reports />} />
-            <Route path="alerts" element={<Alerts />} />
-            <Route path="history" element={<History />} />
-            <Route path="users" element={<Users />} />
-            <Route path="settings" element={<Settings />} />
-            {/* <Route path="integrations" element={<Integrations />} /> */}
-            {/* <Route path="support" element={<Support />} /> */}
           </Route>
 
-          {/* Catch all - redirect to login */}
+          {/* Super Admin Routes - NO PROTECTION for now */}
+          <Route path="/admin-dashboard" element={<AdminLayout />}>
+            <Route index element={<Navigate to="/admin-dashboard/overview" replace />} />
+            <Route path="overview" element={<AdminDashboard />} />
+            <Route path="users" element={<UsersManagement />} />
+            <Route path="zones" element={<ZonesManagement />} />
+            <Route path="plants" element={<PlantsManagement />} />
+            <Route path="devices" element={<DevicesManagement />} />
+          </Route>
+
+          {/* Catch all */}
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </AuthProvider>

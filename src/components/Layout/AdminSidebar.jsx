@@ -1,43 +1,93 @@
-// src/components/Layout/Sidebar.jsx
+// src/components/Layout/AdminSidebar.jsx
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   FaTachometerAlt, 
-  FaPlusCircle, 
-  FaFileAlt,
+  FaUsers, 
+  FaIndustry, 
+  FaMicrochip, 
+  FaBuilding,
+  FaChartBar, 
+  FaCog,
   FaChevronLeft,
   FaChevronRight,
-  FaChartBar,
-  FaSignOutAlt
+  FaFileAlt,
+  FaBell,
+  FaDatabase,
+  FaHistory,
+  FaExclamationTriangle,
+  FaSignOutAlt,
+  FaPlusCircle,
+  FaEdit,
+  FaTrash,
+  FaEye,
+  FaUserShield,
+  FaMapMarkerAlt,
+  FaCalendarAlt
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 
-const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOpen, setMobileMenuOpen }) => {
+const AdminSidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOpen, setMobileMenuOpen }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
 
   const menuItems = [
     { 
-      id: 'dashboard',
+      id: 'overview',
       name: 'Dashboard',
-      path: '/dashboard',
+      path: '/admin-dashboard/overview',
       icon: <FaTachometerAlt />,
-      description: 'Overview & Analytics'
+      description: 'Overview & Stats'
     },
     { 
-      id: 'createZone', 
-      name: 'Create Zone', 
-      path: '/dashboard/create-zone', 
-      icon: <FaPlusCircle />,
-      description: 'Create New Zone'
+      id: 'users', 
+      name: 'Users', 
+      path: '/admin-dashboard/users', 
+      icon: <FaUsers />,
+      description: 'Manage Users'
+    },
+    { 
+      id: 'zones', 
+      name: 'Zones', 
+      path: '/admin-dashboard/zones', 
+      icon: <FaBuilding />,
+      description: 'Manage Zones'
+    },
+    { 
+      id: 'plants', 
+      name: 'Plants', 
+      path: '/admin-dashboard/plants', 
+      icon: <FaIndustry />,
+      description: 'Manage Plants'
+    },
+    { 
+      id: 'devices', 
+      name: 'Devices', 
+      path: '/admin-dashboard/devices', 
+      icon: <FaMicrochip />,
+      description: 'Manage Devices'
     },
     { 
       id: 'reports', 
       name: 'Reports', 
-      path: '/dashboard/reports', 
+      path: '/admin-dashboard/reports', 
       icon: <FaFileAlt />,
-      description: 'Generate & Download'
+      description: 'Analytics Reports'
+    },
+    { 
+      id: 'alerts', 
+      name: 'Alerts', 
+      path: '/admin-dashboard/alerts', 
+      icon: <FaExclamationTriangle />,
+      description: 'System Alerts'
+    },
+    { 
+      id: 'settings', 
+      name: 'Settings', 
+      path: '/admin-dashboard/settings', 
+      icon: <FaCog />,
+      description: 'System Settings'
     },
   ];
 
@@ -57,30 +107,7 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
   };
 
   const isActive = (path) => {
-    if (path === '/dashboard') {
-      return location.pathname === '/dashboard';
-    }
-    return location.pathname.startsWith(path);
-  };
-
-  const getUserInitials = () => {
-    if (user?.firstName) {
-      return user.firstName.charAt(0).toUpperCase();
-    }
-    if (user?.email) {
-      return user.email.charAt(0).toUpperCase();
-    }
-    return 'U';
-  };
-
-  const getUserName = () => {
-    if (user?.firstName) {
-      return user.firstName;
-    }
-    if (user?.email) {
-      return user.email.split('@')[0];
-    }
-    return 'User';
+    return location.pathname === path;
   };
 
   return (
@@ -100,29 +127,12 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
           </div>
           {!sidebarCollapsed && (
             <div className="overflow-hidden">
-              <h1 className="font-bold text-white text-lg">ZoneMonitor</h1>
-              <p className="text-xs text-gray-400">Industrial IoT</p>
+              <h1 className="font-bold text-white text-lg">SuperAdmin</h1>
+              <p className="text-xs text-gray-400">Control Panel</p>
             </div>
           )}
         </div>
       </div>
-
-      {/* User Info */}
-      {!sidebarCollapsed && (
-        <div className="p-4 border-b border-gray-700">
-          <div className="bg-gray-800 rounded-lg p-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
-                {getUserInitials()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white truncate">{getUserName()}</p>
-                <p className="text-xs text-gray-400 truncate">Zone User</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Menu Items */}
       <nav className="flex-1 py-6 overflow-y-auto">
@@ -187,4 +197,4 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
   );
 };
 
-export default Sidebar;
+export default AdminSidebar;
