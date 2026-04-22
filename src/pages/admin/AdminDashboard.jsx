@@ -14,58 +14,85 @@ import {
   FaUserPlus,
   FaCalendarAlt,
   FaDownload,
-  FaEye
+  FaEye,
+  FaSpinner
 } from 'react-icons/fa';
 import { 
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   AreaChart, Area
 } from 'recharts';
+import api from '../../services/api';
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState({
-    totalUsers: 1247,
-    activeUsers: 1156,
-    totalZones: 48,
-    activeZones: 45,
-    totalPlants: 156,
-    activePlants: 148,
-    totalDevices: 2341,
-    onlineDevices: 2189,
-    alerts: 23,
-    criticalAlerts: 5
+    totalUsers: 0,
+    activeUsers: 0,
+    totalZones: 0,
+    activeZones: 0,
+    totalPlants: 0,
+    activePlants: 0,
+    totalDevices: 0,
+    onlineDevices: 0,
+    alerts: 0,
+    criticalAlerts: 0
   });
+  const [recentUsers, setRecentUsers] = useState([]);
+  const [chartData, setChartData] = useState([]);
+  const [deviceStatusData, setDeviceStatusData] = useState([]);
+  const [zoneDistribution, setZoneDistribution] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const [recentUsers, setRecentUsers] = useState([
-    { id: 1, name: 'John Smith', email: 'john@example.com', zone: 'Zone A', status: 'active', date: '2024-03-15' },
-    { id: 2, name: 'Sarah Johnson', email: 'sarah@example.com', zone: 'Zone B', status: 'active', date: '2024-03-14' },
-    { id: 3, name: 'Mike Brown', email: 'mike@example.com', zone: 'Zone C', status: 'inactive', date: '2024-03-13' },
-    { id: 4, name: 'Emily Davis', email: 'emily@example.com', zone: 'Zone A', status: 'active', date: '2024-03-12' },
-    { id: 5, name: 'David Wilson', email: 'david@example.com', zone: 'Zone D', status: 'active', date: '2024-03-11' },
-  ]);
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
-  const [chartData, setChartData] = useState([
-    { month: 'Jan', users: 120, zones: 5, plants: 15, devices: 180 },
-    { month: 'Feb', users: 135, zones: 8, plants: 22, devices: 210 },
-    { month: 'Mar', users: 148, zones: 12, plants: 28, devices: 245 },
-    { month: 'Apr', users: 162, zones: 15, plants: 35, devices: 280 },
-    { month: 'May', users: 178, zones: 18, plants: 42, devices: 320 },
-    { month: 'Jun', users: 195, zones: 22, plants: 48, devices: 365 },
-  ]);
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    try {
+      // Fetch stats
+      const statsResponse = await api.getAdminStats();
+      setStats(statsResponse.data);
 
-  const [deviceStatusData, setDeviceStatusData] = useState([
-    { name: 'Online', value: 2189, color: '#10b981' },
-    { name: 'Offline', value: 152, color: '#ef4444' },
-    { name: 'Maintenance', value: 89, color: '#f59e0b' },
-  ]);
+      // Fetch growth data
+      const growthResponse = await api.getAdminGrowthData();
+      setChartData(growthResponse.data);
 
-  const [zoneDistribution, setZoneDistribution] = useState([
-    { name: 'Zone A', devices: 580, plants: 42 },
-    { name: 'Zone B', devices: 420, plants: 31 },
-    { name: 'Zone C', devices: 680, plants: 48 },
-    { name: 'Zone D', devices: 350, plants: 25 },
-    { name: 'Zone E', devices: 311, plants: 10 },
-  ]);
+      // Fetch recent users
+      const usersResponse = await api.getAdminRecentUsers();
+      setRecentUsers(usersResponse.data);
+
+      // Fetch zones for distribution
+      const zonesResponse = await api.getAdminZones();
+      const zones = zonesResponse.data;
+      const zoneDist = zones.map(zone => ({
+        name: zone.zoneName,
+        devices: zone.devices || 0,
+        plants: zone.plants || 0
+      }));
+      setZoneDistribution(zoneDist);
+
+      // Device status distribution
+      const devicesResponse = await api.getAdminDevices();
+      const devices = devicesResponse.data;
+      const online = devices.filter(d => d.status === 'online').length;
+      const offline = devices.filter(d => d.status === 'offline').length;
+      const maintenance = devices.filter(d => d.status === 'maintenance').length;
+      
+      setDeviceStatusData([
+        { name: 'Online', value: online, color: '#10b981' },
+        { name: 'Offline', value: offline, color: '#ef4444' },
+        { name: 'Maintenance', value: maintenance, color: '#f59e0b' }
+      ]);
+
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const StatCard = ({ title, value, icon, trend, trendValue, color }) => (
     <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300">
@@ -75,13 +102,32 @@ const AdminDashboard = () => {
         </div>
         <div className={`flex items-center gap-1 text-xs font-semibold ${trend > 0 ? 'text-green-500' : 'text-red-500'}`}>
           {trend > 0 ? <FaArrowUp /> : <FaArrowDown />}
-          <span>{trendValue}%</span>
+          <span>{Math.abs(trendValue)}%</span>
         </div>
       </div>
       <h3 className="text-2xl font-bold text-gray-800">{value.toLocaleString()}</h3>
       <p className="text-gray-500 text-sm mt-1">{title}</p>
     </div>
   );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <FaSpinner className="animate-spin text-5xl text-purple-500 mx-auto mb-4" />
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+        Error loading dashboard: {error}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -92,8 +138,8 @@ const AdminDashboard = () => {
           <p className="text-gray-500 mt-1">Welcome back, Super Admin! Here's what's happening today.</p>
         </div>
         <div className="flex gap-3">
-          <button className="px-4 py-2 bg-white border border-gray-200 rounded-lg flex items-center gap-2 hover:bg-gray-50">
-            <FaDownload /> Export Report
+          <button onClick={fetchDashboardData} className="px-4 py-2 bg-white border border-gray-200 rounded-lg flex items-center gap-2 hover:bg-gray-50">
+            <FaSpinner className={loading ? "animate-spin" : ""} /> Refresh
           </button>
           <button className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg flex items-center gap-2 hover:shadow-lg">
             <FaEye /> View Analytics
@@ -137,11 +183,11 @@ const AdminDashboard = () => {
         <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white">
           <div className="flex items-center justify-between mb-3">
             <FaUserPlus className="text-2xl" />
-            <span className="text-xs bg-white/20 px-2 py-1 rounded-full">This Week</span>
+            <span className="text-xs bg-white/20 px-2 py-1 rounded-full">This Month</span>
           </div>
-          <p className="text-2xl font-bold">+28</p>
+          <p className="text-2xl font-bold">+{recentUsers.length}</p>
           <p className="text-sm opacity-90">New Users</p>
-          <p className="text-xs mt-2 opacity-75">12 in the last 24 hours</p>
+          <p className="text-xs mt-2 opacity-75">Joined recently</p>
         </div>
       </div>
 
@@ -154,10 +200,6 @@ const AdminDashboard = () => {
               <h3 className="text-lg font-semibold text-gray-800">Platform Growth</h3>
               <p className="text-sm text-gray-500">Monthly user & device addition</p>
             </div>
-            <select className="px-3 py-1 border border-gray-200 rounded-lg text-sm">
-              <option>Last 6 Months</option>
-              <option>Last Year</option>
-            </select>
           </div>
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={chartData}>
@@ -223,9 +265,9 @@ const AdminDashboard = () => {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <div className="flex-1 bg-gray-200 rounded-full h-2">
-                        <div className="bg-green-500 h-2 rounded-full" style={{ width: `${(zone.devices / 700) * 100}%` }}></div>
+                        <div className="bg-green-500 h-2 rounded-full" style={{ width: `${Math.min((zone.devices / 700) * 100, 100)}%` }}></div>
                       </div>
-                      <span className="text-xs text-gray-500">{((zone.devices / 700) * 100).toFixed(0)}%</span>
+                      <span className="text-xs text-gray-500">{Math.min(((zone.devices / 700) * 100), 100).toFixed(0)}%</span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -253,25 +295,35 @@ const AdminDashboard = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Zone</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Role</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Date</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {recentUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-800">{user.name}</td>
+                <tr key={user._id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 font-medium text-gray-800">{user.firstName} {user.lastName}</td>
                   <td className="px-6 py-4 text-gray-600">{user.email}</td>
-                  <td className="px-6 py-4 text-gray-600">{user.zone}</td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      user.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      user.role === 'super_admin' ? 'bg-purple-100 text-purple-700' :
+                      user.role === 'admin' ? 'bg-red-100 text-red-700' :
+                      'bg-blue-100 text-blue-700'
                     }`}>
-                      {user.status}
+                      {user.role}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-gray-500 text-sm">{user.date}</td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      user.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {user.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-500 text-sm">
+                    {new Date(user.createdAt).toLocaleDateString()}
+                  </td>
                 </tr>
               ))}
             </tbody>

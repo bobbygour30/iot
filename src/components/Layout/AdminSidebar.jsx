@@ -68,27 +68,6 @@ const AdminSidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileM
       icon: <FaMicrochip />,
       description: 'Manage Devices'
     },
-    { 
-      id: 'reports', 
-      name: 'Reports', 
-      path: '/admin-dashboard/reports', 
-      icon: <FaFileAlt />,
-      description: 'Analytics Reports'
-    },
-    { 
-      id: 'alerts', 
-      name: 'Alerts', 
-      path: '/admin-dashboard/alerts', 
-      icon: <FaExclamationTriangle />,
-      description: 'System Alerts'
-    },
-    { 
-      id: 'settings', 
-      name: 'Settings', 
-      path: '/admin-dashboard/settings', 
-      icon: <FaCog />,
-      description: 'System Settings'
-    },
   ];
 
   const handleMenuClick = (path) => {

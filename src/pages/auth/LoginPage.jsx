@@ -1,4 +1,4 @@
-// src/pages/LoginPage.jsx
+// src/pages/auth/LoginPage.jsx
 import React, { useState } from 'react';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
@@ -40,10 +40,22 @@ const LoginPage = () => {
 
     if (Object.keys(newErrors).length === 0) {
       setIsLoading(true);
+      setApiError('');
+      
       try {
-        await login(formData);
-        navigate('/dashboard');
+        const response = await login(formData);
+        console.log('Login response:', response);
+        
+        // Check user role and redirect accordingly
+        const userRole = response.data.user?.role;
+        
+        if (userRole === 'super_admin') {
+          navigate('/admin-dashboard/overview');
+        } else {
+          navigate('/dashboard');
+        }
       } catch (error) {
+        console.error('Login error:', error);
         setApiError(error.message || 'Login failed. Please check your credentials.');
       } finally {
         setIsLoading(false);
@@ -62,7 +74,7 @@ const LoginPage = () => {
             </svg>
           </div>
           <h1 className="text-3xl font-bold text-gray-700">Zone Login</h1>
-          <p className="text-gray-500 mt-2">Access your zone-level dashboard</p>
+          <p className="text-gray-500 mt-2">Access your dashboard</p>
         </div>
 
         {/* Login Form Card */}
@@ -167,7 +179,7 @@ const LoginPage = () => {
                     Logging in...
                   </div>
                 ) : (
-                  'Login to Zone'
+                  'Login'
                 )}
               </button>
             </div>
@@ -177,11 +189,20 @@ const LoginPage = () => {
               <p className="text-gray-500">
                 Don't have an account?{' '}
                 <Link to="/register" className="text-purple-500 hover:text-purple-600 font-medium transition-colors">
-                  Create Zone Account →
+                  Create Account →
                 </Link>
               </p>
             </div>
           </form>
+        </div>
+
+        {/* Demo Credentials Hint */}
+        <div className="mt-6 text-center">
+          <div className="inline-block bg-white/40 backdrop-blur-sm rounded-lg px-4 py-2 text-xs text-gray-500">
+            <p className="font-medium text-gray-600">Demo Credentials:</p>
+            <p>Regular User: Register a new account</p>
+            <p className="mt-1">Super Admin: superadmin@zonemonitor.com | Admin@123 | Any zone</p>
+          </div>
         </div>
       </div>
     </div>

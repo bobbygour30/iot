@@ -26,12 +26,19 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem('token');
     if (token) {
       try {
+        api.setToken(token);
         const response = await api.getCurrentUser();
         setUser(response.data.user);
         setZone(response.data.zone);
+        // Store role in localStorage for quick access
+        if (response.data.user?.role) {
+          localStorage.setItem('userRole', response.data.user.role);
+        }
       } catch (error) {
         console.error('Auth check failed:', error);
         api.setToken(null);
+        localStorage.removeItem('token');
+        localStorage.removeItem('userRole');
       }
     }
     setLoading(false);
@@ -43,6 +50,9 @@ export const AuthProvider = ({ children }) => {
       const response = await api.register(userData);
       setUser(response.data.user);
       setZone(response.data.zone);
+      if (response.data.user?.role) {
+        localStorage.setItem('userRole', response.data.user.role);
+      }
       return response;
     } catch (error) {
       setError(error.message);
@@ -56,6 +66,10 @@ export const AuthProvider = ({ children }) => {
       const response = await api.login(credentials);
       setUser(response.data.user);
       setZone(response.data.zone);
+      // Store role in localStorage for quick access
+      if (response.data.user?.role) {
+        localStorage.setItem('userRole', response.data.user.role);
+      }
       return response;
     } catch (error) {
       setError(error.message);
@@ -72,6 +86,8 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       setZone(null);
       api.setToken(null);
+      localStorage.removeItem('token');
+      localStorage.removeItem('userRole');
     }
   };
 

@@ -78,7 +78,7 @@ class ApiService {
     this.setToken(null);
   }
 
-  // ==================== PLANT ENDPOINTS ====================
+  // ==================== PLANT ENDPOINTS (User) ====================
   
   async createPlant(plantData) {
     return this.request('/plants', {
@@ -108,7 +108,7 @@ class ApiService {
     });
   }
 
-  // ==================== ZONE ENDPOINTS ====================
+  // ==================== ZONE ENDPOINTS (User) ====================
   
   async createZone(zoneData) {
     return this.request('/zones', {
@@ -138,7 +138,7 @@ class ApiService {
     });
   }
 
-  // ==================== DEVICE ENDPOINTS ====================
+  // ==================== DEVICE ENDPOINTS (User) ====================
   
   async registerDevice(deviceData) {
     return this.request('/devices', {
@@ -179,7 +179,145 @@ class ApiService {
     });
   }
 
-  // ==================== LEGACY ZONE ENDPOINTS (for backward compatibility) ====================
+  // ==================== ADMIN DASHBOARD ENDPOINTS ====================
+  
+  // Dashboard Stats
+  async getAdminStats() {
+    return this.request('/admin/stats');
+  }
+
+  async getAdminGrowthData() {
+    return this.request('/admin/growth-data');
+  }
+
+  async getAdminRecentUsers() {
+    return this.request('/admin/recent-users');
+  }
+
+  // ==================== ADMIN USER MANAGEMENT ====================
+  
+  async getAdminUsers(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    return this.request(`/admin/users${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getAdminUser(id) {
+    return this.request(`/admin/users/${id}`);
+  }
+
+  async createAdminUser(userData) {
+    return this.request('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });
+  }
+
+  async updateAdminUser(id, userData) {
+    return this.request(`/admin/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(userData),
+    });
+  }
+
+  async deleteAdminUser(id) {
+    return this.request(`/admin/users/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async toggleAdminUserStatus(id) {
+    return this.request(`/admin/users/${id}/toggle-status`, {
+      method: 'PATCH',
+    });
+  }
+
+  // ==================== ADMIN ZONE MANAGEMENT ====================
+  
+  async getAdminZones() {
+    return this.request('/admin/zones');
+  }
+
+  async createAdminZone(zoneData) {
+    return this.request('/admin/zones', {
+      method: 'POST',
+      body: JSON.stringify(zoneData),
+    });
+  }
+
+  async updateAdminZone(id, zoneData) {
+    return this.request(`/admin/zones/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(zoneData),
+    });
+  }
+
+  async deleteAdminZone(id) {
+    return this.request(`/admin/zones/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==================== ADMIN PLANT MANAGEMENT ====================
+  
+  async getAdminPlants() {
+    return this.request('/admin/plants');
+  }
+
+  async createAdminPlant(plantData) {
+    return this.request('/admin/plants', {
+      method: 'POST',
+      body: JSON.stringify(plantData),
+    });
+  }
+
+  async updateAdminPlant(id, plantData) {
+    return this.request(`/admin/plants/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(plantData),
+    });
+  }
+
+  async deleteAdminPlant(id) {
+    return this.request(`/admin/plants/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==================== ADMIN DEVICE MANAGEMENT ====================
+  
+  async getAdminDevices(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    return this.request(`/admin/devices${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async registerAdminDevice(deviceData) {
+    return this.request('/admin/devices', {
+      method: 'POST',
+      body: JSON.stringify(deviceData),
+    });
+  }
+
+  async updateAdminDevice(id, deviceData) {
+    return this.request(`/admin/devices/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(deviceData),
+    });
+  }
+
+  async deleteAdminDevice(id) {
+    return this.request(`/admin/devices/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async updateAdminDeviceStatus(id, status) {
+    return this.request(`/admin/devices/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  // ==================== LEGACY ZONE ENDPOINTS ====================
   
   async getLegacyZone() {
     return this.request('/zones');
@@ -194,7 +332,6 @@ class ApiService {
 
   // ==================== UTILITY METHODS ====================
   
-  // Helper method to handle file downloads
   async downloadReport(endpoint, filename) {
     const url = `${API_URL}${endpoint}`;
     const response = await fetch(url, {
@@ -216,10 +353,10 @@ class ApiService {
     window.URL.revokeObjectURL(downloadUrl);
   }
 
-  // Clear all user data on logout
   clearUserData() {
     this.setToken(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('userRole');
     sessionStorage.clear();
   }
 }
