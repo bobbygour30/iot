@@ -293,53 +293,6 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
-      
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-gray-500 text-sm">Temperature (Avg)</p>
-            <FaThermometerHalf className="text-orange-500 text-xl" />
-          </div>
-          <p className="text-2xl font-bold text-gray-800">{stats.avgTemp}°C</p>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-xs text-gray-500">Max: {stats.maxTemp}°C</span>
-            <span className="text-xs text-gray-500">Min: {stats.minTemp}°C</span>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-gray-500 text-sm">Humidity (Avg)</p>
-            <FaLeaf className="text-blue-500 text-xl" />
-          </div>
-          <p className="text-2xl font-bold text-gray-800">{stats.avgHumidity}%</p>
-          <div className="flex items-center gap-1 mt-1">
-            <div className="w-full bg-gray-200 rounded-full h-1.5">
-              <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${(stats.avgHumidity / 100) * 100}%` }}></div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-gray-500 text-sm">VOC (Avg)</p>
-            <FaIndustry className="text-green-500 text-xl" />
-          </div>
-          <p className="text-2xl font-bold text-gray-800">{stats.avgVOC}</p>
-          <p className="text-green-500 text-xs mt-1">ppb</p>
-        </div>
-        
-        <div className="bg-white rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-gray-500 text-sm">Active Alerts</p>
-            <FaExclamationTriangle className="text-red-500 text-xl" />
-          </div>
-          <p className="text-2xl font-bold text-red-500">{stats.alertCount}</p>
-          <p className="text-red-500 text-xs mt-1">Requires attention</p>
-        </div>
-      </div>
 
       {/* Filters Section */}
       <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 sm:p-5 mb-6 shadow-lg border border-gray-100">

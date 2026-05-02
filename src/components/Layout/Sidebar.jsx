@@ -11,6 +11,7 @@ import {
   FaSignOutAlt
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
+import assets from '../../assets/assets'
 
 const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOpen, setMobileMenuOpen }) => {
   const navigate = useNavigate();
@@ -90,45 +91,32 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
       lg:translate-x-0
       fixed lg:fixed
       z-30 h-screen
-      bg-gradient-to-b from-gray-900 to-gray-800 shadow-xl transition-all duration-300 flex flex-col
+      bg-gradient-to-b from-gray-50 to-white shadow-xl transition-all duration-300 flex flex-col border-r border-gray-200
     `}>
-      {/* Logo Section */}
-      <div className="p-5 border-b border-gray-700">
+      {/* Logo Section with Image */}
+      <div className="p-5 border-b border-gray-200">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0 shadow-lg">
-            <FaChartBar className="text-white text-xl" />
-          </div>
+          {/* Image Logo */}
+          <img 
+            src={assets.logo} 
+            alt="ZoneMonitor Logo" 
+            className="w-15 h-15 rounded-xl object-cover flex-shrink-0 shadow-sm"
+          />
           {!sidebarCollapsed && (
             <div className="overflow-hidden">
-              <h1 className="font-bold text-white text-lg">ZoneMonitor</h1>
-              <p className="text-xs text-gray-400">Industrial IoT</p>
+              <h1 className="font-bold text-gray-800 text-lg">Five Star Technologies</h1>
             </div>
           )}
         </div>
       </div>
 
-      {/* User Info */}
-      {!sidebarCollapsed && (
-        <div className="p-4 border-b border-gray-700">
-          <div className="bg-gray-800 rounded-lg p-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
-                {getUserInitials()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white truncate">{getUserName()}</p>
-                <p className="text-xs text-gray-400 truncate">Zone User</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      
 
       {/* Menu Items */}
       <nav className="flex-1 py-6 overflow-y-auto">
         <div className="px-3">
           {!sidebarCollapsed && (
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-3">Main Menu</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-3">Main Menu</p>
           )}
           {menuItems.map((item) => (
             <button
@@ -137,20 +125,20 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
               className={`
                 w-full flex items-center gap-3 px-3 py-2.5 mb-1 rounded-lg transition-all duration-200
                 ${isActive(item.path) 
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg' 
-                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md' 
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }
                 ${sidebarCollapsed ? 'justify-center' : ''}
               `}
               title={sidebarCollapsed ? item.name : ''}
             >
-              <span className={`text-xl flex-shrink-0 ${isActive(item.path) ? 'text-white' : 'text-gray-400'}`}>
+              <span className={`text-xl flex-shrink-0 ${isActive(item.path) ? 'text-white' : 'text-gray-500'}`}>
                 {item.icon}
               </span>
               {!sidebarCollapsed && (
                 <div className="flex-1 text-left">
                   <span className="text-sm font-medium truncate block">{item.name}</span>
-                  <span className="text-xs text-gray-400 truncate block">{item.description}</span>
+                  <span className="text-xs text-gray-500 truncate block">{item.description}</span>
                 </div>
               )}
             </button>
@@ -159,11 +147,11 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
       </nav>
 
       {/* Bottom Section */}
-      <div className="p-4 border-t border-gray-700">
+      <div className="p-4 border-t border-gray-200">
         <button
           onClick={handleLogout}
           className={`
-            w-full flex items-center gap-2 px-3 py-2 mb-2 text-red-400 hover:bg-red-900/20 hover:text-red-300 rounded-lg transition-all
+            w-full flex items-center gap-2 px-3 py-2 mb-2 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-all
             ${sidebarCollapsed ? 'justify-center' : ''}
           `}
           title={sidebarCollapsed ? 'Logout' : ''}
@@ -175,7 +163,7 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
           className={`
-            w-full flex items-center gap-2 px-3 py-2 text-gray-400 hover:bg-gray-700 rounded-lg transition-all
+            w-full flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all
             ${sidebarCollapsed ? 'justify-center' : ''}
           `}
         >
