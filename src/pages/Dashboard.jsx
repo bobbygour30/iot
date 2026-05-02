@@ -21,13 +21,13 @@ import {
   FaArrowUp,
   FaArrowDown,
   FaMinus,
-  FaCompress
+  FaCompress,
+  FaFilter
 } from 'react-icons/fa';
 import {
   LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell
 } from 'recharts';
 import * as XLSX from 'xlsx';
-import html2canvas from 'html2canvas';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('thermal');
@@ -35,15 +35,16 @@ const Dashboard = () => {
   const [selectedCity, setSelectedCity] = useState('');
   const [selectedPlant, setSelectedPlant] = useState('');
   const [selectedZone, setSelectedZone] = useState('');
+  const [selectedDevice, setSelectedDevice] = useState('');
   const [dateFrom, setDateFrom] = useState('2024-01-01');
   const [dateTo, setDateTo] = useState('2024-12-31');
-  const [zoneFilter, setZoneFilter] = useState('all');
   const [isMobile, setIsMobile] = useState(false);
   const [sensorData, setSensorData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -71,14 +72,13 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchSensorData();
-    const interval = setInterval(fetchSensorData, 30000); // Refresh every 30 seconds
+    const interval = setInterval(fetchSensorData, 30000);
     return () => clearInterval(interval);
   }, []);
 
   // Download data as Excel/CSV
   const handleDownload = () => {
     try {
-      // Prepare data for export
       const exportData = sensorData.map(item => ({
         'Device ID': item.device_id,
         'Temperature (°C)': item.temperature,
@@ -87,31 +87,17 @@ const Dashboard = () => {
         'Timestamp': new Date(item.created_at).toLocaleString()
       }));
 
-      // Create worksheet
       const ws = XLSX.utils.json_to_sheet(exportData);
-      
-      // Auto-size columns
       const colWidths = [
-        { wch: 20 }, // Device ID
-        { wch: 15 }, // Temperature
-        { wch: 15 }, // Humidity
-        { wch: 15 }, // VOC
-        { wch: 25 }  // Timestamp
+        { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 25 }
       ];
       ws['!cols'] = colWidths;
 
-      // Create workbook
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Sensor Data');
-
-      // Generate filename with current date
       const filename = `sensor_data_${new Date().toISOString().split('T')[0]}.xlsx`;
-      
-      // Download file
       XLSX.writeFile(wb, filename);
       
-      // Show success message
-      setError(null);
       const successMsg = document.createElement('div');
       successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
       successMsg.innerHTML = '✅ Data downloaded successfully!';
@@ -153,7 +139,6 @@ const Dashboard = () => {
     }
   };
 
-  // Listen for fullscreen change events
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -207,16 +192,21 @@ const Dashboard = () => {
     return <FaMinus className="text-yellow-500 text-xs" />;
   };
 
-  const states = ['Maharashtra', 'Gujarat', 'Karnataka', 'Tamil Nadu', 'Delhi'];
+  // Extended data for filters
+  const states = ['Maharashtra', 'Gujarat', 'Karnataka', 'Tamil Nadu', 'Delhi', 'West Bengal', 'Telangana', 'Rajasthan'];
   const cities = {
-    'Maharashtra': ['Mumbai', 'Pune', 'Nagpur'],
-    'Gujarat': ['Ahmedabad', 'Surat', 'Vadodara'],
-    'Karnataka': ['Bengaluru', 'Mysore', 'Hubli'],
-    'Tamil Nadu': ['Chennai', 'Coimbatore', 'Madurai'],
-    'Delhi': ['New Delhi', 'Noida', 'Gurugram']
+    'Maharashtra': ['Mumbai', 'Pune', 'Nagpur', 'Nashik', 'Thane'],
+    'Gujarat': ['Ahmedabad', 'Surat', 'Vadodara', 'Rajkot', 'Bhavnagar'],
+    'Karnataka': ['Bengaluru', 'Mysore', 'Hubli', 'Mangalore', 'Belgaum'],
+    'Tamil Nadu': ['Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli', 'Salem'],
+    'Delhi': ['New Delhi', 'Noida', 'Gurugram', 'Faridabad', 'Ghaziabad'],
+    'West Bengal': ['Kolkata', 'Howrah', 'Durgapur', 'Siliguri', 'Asansol'],
+    'Telangana': ['Hyderabad', 'Secunderabad', 'Warangal', 'Nizamabad', 'Karimnagar'],
+    'Rajasthan': ['Jaipur', 'Jodhpur', 'Udaipur', 'Kota', 'Ajmer']
   };
-  const plants = ['Plant A', 'Plant B', 'Plant C', 'Plant D'];
-  const zones = ['Zone 1', 'Zone 2', 'Zone 3', 'Zone 4'];
+  const plants = ['Plant A', 'Plant B', 'Plant C', 'Plant D', 'Plant E', 'Plant F', 'Plant G', 'Plant H'];
+  const zones = ['Zone 1', 'Zone 2', 'Zone 3', 'Zone 4', 'Zone 5', 'Zone 6'];
+  const devices = ['Device 1', 'Device 2', 'Device 3', 'Device 4', 'Device 5', 'Device 6', 'Device 7', 'Device 8'];
 
   const tabs = [
     { id: 'thermal', label: 'Temperature', icon: <FaThermometerHalf />, color: '#f97316', dataKey: 'temperature', unit: '°C' },
@@ -263,7 +253,6 @@ const Dashboard = () => {
 
   const tabContent = getTabContent();
 
-  // Custom Tooltip
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
@@ -280,6 +269,16 @@ const Dashboard = () => {
     return null;
   };
 
+  const handleResetFilters = () => {
+    setSelectedState('');
+    setSelectedCity('');
+    setSelectedPlant('');
+    setSelectedZone('');
+    setSelectedDevice('');
+    setDateFrom('2024-01-01');
+    setDateTo('2024-12-31');
+  };
+
   if (loading && !sensorData.length) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
@@ -293,73 +292,185 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
+      
 
-      {/* Filters Section */}
-      <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 sm:p-5 mb-6 shadow-lg border border-gray-100">
-        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
-              <FaMapMarkerAlt className="text-xs" /> State
-            </label>
-            <select value={selectedState} onChange={(e) => setSelectedState(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500">
-              <option value="">All States</option>
-              {states.map(s => <option key={s}>{s}</option>)}
-            </select>
+      {/* Filters Section - Reorganized */}
+      {showFilters && (
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 sm:p-5 mb-6 shadow-lg border border-gray-100">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <FaFilter className="text-purple-500" />
+              Filter Options
+            </h3>
+            <button
+              onClick={handleResetFilters}
+              className="text-xs text-purple-600 hover:text-purple-700 font-medium"
+            >
+              Reset All Filters
+            </button>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
-              <FaCity className="text-xs" /> City
-            </label>
-            <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500" disabled={!selectedState}>
-              <option value="">All Cities</option>
-              {selectedState && cities[selectedState]?.map(c => <option key={c}>{c}</option>)}
-            </select>
+          
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+            {/* States */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                <FaMapMarkerAlt className="text-xs" /> State
+              </label>
+              <select 
+                value={selectedState} 
+                onChange={(e) => {
+                  setSelectedState(e.target.value);
+                  setSelectedCity(''); // Reset city when state changes
+                }} 
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">All States</option>
+                {states.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+
+            {/* Cities */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                <FaCity className="text-xs" /> City
+              </label>
+              <select 
+                value={selectedCity} 
+                onChange={(e) => setSelectedCity(e.target.value)} 
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500" 
+                disabled={!selectedState}
+              >
+                <option value="">All Cities</option>
+                {selectedState && cities[selectedState]?.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+
+            {/* Plants */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                <FaIndustry className="text-xs" /> Plant
+              </label>
+              <select 
+                value={selectedPlant} 
+                onChange={(e) => setSelectedPlant(e.target.value)} 
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">All Plants</option>
+                {plants.map(p => <option key={p}>{p}</option>)}
+              </select>
+            </div>
+
+            {/* Zones */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                <FaChartBar className="text-xs" /> Zone
+              </label>
+              <select 
+                value={selectedZone} 
+                onChange={(e) => setSelectedZone(e.target.value)} 
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">All Zones</option>
+                {zones.map(z => <option key={z}>{z}</option>)}
+              </select>
+            </div>
+
+            {/* Devices */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                <FaMicrochip className="text-xs" /> Device
+              </label>
+              <select 
+                value={selectedDevice} 
+                onChange={(e) => setSelectedDevice(e.target.value)} 
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">All Devices</option>
+                {devices.map(d => <option key={d}>{d}</option>)}
+              </select>
+            </div>
+
+            {/* From Date */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                <FaCalendarAlt className="text-xs" /> From
+              </label>
+              <input 
+                type="date" 
+                value={dateFrom} 
+                onChange={(e) => setDateFrom(e.target.value)} 
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500" 
+              />
+            </div>
+
+            {/* To Date */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                <FaCalendarAlt className="text-xs" /> To
+              </label>
+              <input 
+                type="date" 
+                value={dateTo} 
+                onChange={(e) => setDateTo(e.target.value)} 
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500" 
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
-              <FaIndustry className="text-xs" /> Plant
-            </label>
-            <select value={selectedPlant} onChange={(e) => setSelectedPlant(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500">
-              <option value="">All Plants</option>
-              {plants.map(p => <option key={p}>{p}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
-              <FaChartBar className="text-xs" /> Zone
-            </label>
-            <select value={selectedZone} onChange={(e) => setSelectedZone(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500">
-              <option value="">All Zones</option>
-              {zones.map(z => <option key={z}>{z}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
-              <FaCalendarAlt className="text-xs" /> From
-            </label>
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
-              <FaCalendarAlt className="text-xs" /> To
-            </label>
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
-              <FaChartBar className="text-xs" /> Zone Filter
-            </label>
-            <select value={zoneFilter} onChange={(e) => setZoneFilter(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500">
-              <option value="all">All Zones</option>
-              <option value="zone1">Zone 1</option>
-              <option value="zone2">Zone 2</option>
-              <option value="zone3">Zone 3</option>
-            </select>
-          </div>
+
+          {/* Active Filters Display */}
+          {(selectedState || selectedCity || selectedPlant || selectedZone || selectedDevice || (dateFrom !== '2024-01-01') || (dateTo !== '2024-12-31')) && (
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <p className="text-xs text-gray-500 mb-2">Active Filters:</p>
+              <div className="flex flex-wrap gap-2">
+                {selectedState && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
+                    State: {selectedState}
+                    <button onClick={() => setSelectedState('')} className="hover:text-purple-900">×</button>
+                  </span>
+                )}
+                {selectedCity && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
+                    City: {selectedCity}
+                    <button onClick={() => setSelectedCity('')} className="hover:text-blue-900">×</button>
+                  </span>
+                )}
+                {selectedPlant && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
+                    Plant: {selectedPlant}
+                    <button onClick={() => setSelectedPlant('')} className="hover:text-green-900">×</button>
+                  </span>
+                )}
+                {selectedZone && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs">
+                    Zone: {selectedZone}
+                    <button onClick={() => setSelectedZone('')} className="hover:text-orange-900">×</button>
+                  </span>
+                )}
+                {selectedDevice && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">
+                    Device: {selectedDevice}
+                    <button onClick={() => setSelectedDevice('')} className="hover:text-yellow-900">×</button>
+                  </span>
+                )}
+                {dateFrom !== '2024-01-01' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
+                    From: {dateFrom}
+                    <button onClick={() => setDateFrom('2024-01-01')} className="hover:text-gray-900">×</button>
+                  </span>
+                )}
+                {dateTo !== '2024-12-31' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
+                    To: {dateTo}
+                    <button onClick={() => setDateTo('2024-12-31')} className="hover:text-gray-900">×</button>
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
-      {/* Main Chart Area with Recharts */}
+      {/* Main Chart Area */}
       <div id="chart-container" className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden mb-6 transition-all">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 sm:p-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
           <div>
@@ -524,7 +635,7 @@ const Dashboard = () => {
                     <span className={`${reading.voc > thresholdVOC ? 'text-red-600 font-semibold' : 'text-gray-700'}`}>
                       {reading.voc > 50000 ? '>50k' : reading.voc}
                     </span>
-                   </td>
+                    </td>
                   <td className="px-4 py-3 text-xs text-gray-500">{new Date(reading.created_at).toLocaleString()}</td>
                 </tr>
               ))}
