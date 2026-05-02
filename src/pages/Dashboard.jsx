@@ -22,15 +22,20 @@ import {
   FaArrowDown,
   FaMinus,
   FaCompress,
-  FaFilter
+  FaFilter,
+  FaTint,
+  FaFlask,
+  FaWind,
+  FaMoon,
+  FaFire,
+  FaSmog
 } from 'react-icons/fa';
 import {
-  LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import * as XLSX from 'xlsx';
 
 const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState('thermal');
   const [selectedState, setSelectedState] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
   const [selectedPlant, setSelectedPlant] = useState('');
@@ -45,6 +50,7 @@ const Dashboard = () => {
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
+  const [activeGraph, setActiveGraph] = useState('temperature');
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -88,11 +94,6 @@ const Dashboard = () => {
       }));
 
       const ws = XLSX.utils.json_to_sheet(exportData);
-      const colWidths = [
-        { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 25 }
-      ];
-      ws['!cols'] = colWidths;
-
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Sensor Data');
       const filename = `sensor_data_${new Date().toISOString().split('T')[0]}.xlsx`;
@@ -105,11 +106,6 @@ const Dashboard = () => {
       setTimeout(() => successMsg.remove(), 3000);
     } catch (err) {
       console.error('Download error:', err);
-      const errorMsg = document.createElement('div');
-      errorMsg.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-      errorMsg.innerHTML = '❌ Failed to download data';
-      document.body.appendChild(errorMsg);
-      setTimeout(() => errorMsg.remove(), 3000);
     }
   };
 
@@ -121,19 +117,11 @@ const Dashboard = () => {
     if (!isFullscreen) {
       if (chartElement.requestFullscreen) {
         chartElement.requestFullscreen();
-      } else if (chartElement.webkitRequestFullscreen) {
-        chartElement.webkitRequestFullscreen();
-      } else if (chartElement.msRequestFullscreen) {
-        chartElement.msRequestFullscreen();
       }
       setIsFullscreen(true);
     } else {
       if (document.exitFullscreen) {
         document.exitFullscreen();
-      } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-      } else if (document.msExitFullscreen) {
-        document.msExitFullscreen();
       }
       setIsFullscreen(false);
     }
@@ -161,108 +149,148 @@ const Dashboard = () => {
   };
 
   const chartData = processChartData();
-  
-  // Calculate statistics
-  const calculateStats = () => {
-    if (!sensorData.length) return { avgTemp: 0, maxTemp: 0, minTemp: 0, avgHumidity: 0, avgVOC: 0, alertCount: 0 };
-    
-    const temps = sensorData.map(d => d.temperature);
-    const humidities = sensorData.map(d => d.humidity);
-    const vocs = sensorData.map(d => d.voc).filter(v => v < 60000);
-    
-    const avgTemp = (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1);
-    const maxTemp = Math.max(...temps);
-    const minTemp = Math.min(...temps);
-    const avgHumidity = (humidities.reduce((a, b) => a + b, 0) / humidities.length).toFixed(1);
-    const avgVOC = (vocs.reduce((a, b) => a + b, 0) / vocs.length).toFixed(0);
-    const alertCount = sensorData.filter(d => d.temperature > 34 || d.voc > 35000).length;
-    
-    return { avgTemp, maxTemp, minTemp, avgHumidity, avgVOC, alertCount, totalReadings: sensorData.length };
-  };
 
-  const stats = calculateStats();
-  const latestReading = sensorData[0];
-  const thresholdTemp = 34;
-  const thresholdVOC = 35000;
-
-  // Get trend indicator
-  const getTrendIcon = (value, threshold) => {
-    if (value > threshold) return <FaArrowUp className="text-red-500 text-xs" />;
-    if (value < threshold) return <FaArrowDown className="text-green-500 text-xs" />;
-    return <FaMinus className="text-yellow-500 text-xs" />;
-  };
-
-  // Extended data for filters
-  const states = ['Maharashtra', 'Gujarat', 'Karnataka', 'Tamil Nadu', 'Delhi', 'West Bengal', 'Telangana', 'Rajasthan'];
-  const cities = {
-    'Maharashtra': ['Mumbai', 'Pune', 'Nagpur', 'Nashik', 'Thane'],
-    'Gujarat': ['Ahmedabad', 'Surat', 'Vadodara', 'Rajkot', 'Bhavnagar'],
-    'Karnataka': ['Bengaluru', 'Mysore', 'Hubli', 'Mangalore', 'Belgaum'],
-    'Tamil Nadu': ['Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli', 'Salem'],
-    'Delhi': ['New Delhi', 'Noida', 'Gurugram', 'Faridabad', 'Ghaziabad'],
-    'West Bengal': ['Kolkata', 'Howrah', 'Durgapur', 'Siliguri', 'Asansol'],
-    'Telangana': ['Hyderabad', 'Secunderabad', 'Warangal', 'Nizamabad', 'Karimnagar'],
-    'Rajasthan': ['Jaipur', 'Jodhpur', 'Udaipur', 'Kota', 'Ajmer']
-  };
-  const plants = ['Plant A', 'Plant B', 'Plant C', 'Plant D', 'Plant E', 'Plant F', 'Plant G', 'Plant H'];
-  const zones = ['Zone 1', 'Zone 2', 'Zone 3', 'Zone 4', 'Zone 5', 'Zone 6'];
-  const devices = ['Device 1', 'Device 2', 'Device 3', 'Device 4', 'Device 5', 'Device 6', 'Device 7', 'Device 8'];
-
-  const tabs = [
-    { id: 'thermal', label: 'Temperature', icon: <FaThermometerHalf />, color: '#f97316', dataKey: 'temperature', unit: '°C' },
-    { id: 'humidity', label: 'Humidity', icon: <FaLeaf />, color: '#3b82f6', dataKey: 'humidity', unit: '%' },
-    { id: 'voc', label: 'VOC', icon: <FaIndustry />, color: '#10b981', dataKey: 'voc', unit: 'ppb' },
-    { id: 'acoustic', label: 'Acoustic', icon: <FaVolumeUp />, color: '#8b5cf6', dataKey: 'acoustic', unit: 'dB' },
-    { id: 'hpi', label: 'HPI', icon: <FaHeartbeat />, color: '#ec4899', dataKey: 'hpi', unit: '' },
+  // Graph configurations - only showing data from API
+  const graphs = [
+    { 
+      id: 'temperature', 
+      label: 'TEMPERATURE', 
+      icon: <FaThermometerHalf />, 
+      color: '#f97316', 
+      dataKey: 'temperature', 
+      unit: '°C',
+      description: 'Temperature readings in degrees Celsius'
+    },
+    { 
+      id: 'humidity', 
+      label: 'RELATIVE HUMIDITY', 
+      icon: <FaTint />, 
+      color: '#3b82f6', 
+      dataKey: 'humidity', 
+      unit: '%',
+      description: 'Relative humidity percentage'
+    },
+    { 
+      id: 'voc', 
+      label: 'TVOC', 
+      icon: <FaFlask />, 
+      color: '#10b981', 
+      dataKey: 'voc', 
+      unit: 'ppb',
+      description: 'Total Volatile Organic Compounds'
+    },
+    { 
+      id: 'airVelocity', 
+      label: 'AIR VELOCITY', 
+      icon: <FaWind />, 
+      color: '#06b6d4', 
+      dataKey: 'airVelocity', 
+      unit: 'm/s',
+      description: 'Air velocity in meters per second',
+      comingSoon: true
+    },
+    { 
+      id: 'pm', 
+      label: 'PM - 2.5/10', 
+      icon: <FaSmog />, 
+      color: '#ef4444', 
+      dataKey: 'pm', 
+      unit: 'µg/m³',
+      description: 'Particulate Matter 2.5 and 10',
+      comingSoon: true
+    },
+    { 
+      id: 'co2', 
+      label: 'CO2', 
+      icon: <FaFire />, 
+      color: '#8b5cf6', 
+      dataKey: 'co2', 
+      unit: 'ppm',
+      description: 'Carbon Dioxide levels',
+      comingSoon: true
+    },
+    { 
+      id: 'lux', 
+      label: 'LUX', 
+      icon: <FaMoon />, 
+      color: '#f59e0b', 
+      dataKey: 'lux', 
+      unit: 'lx',
+      description: 'Light intensity',
+      comingSoon: true
+    },
+    { 
+      id: 'noise', 
+      label: 'NOISE - AV/PEAK', 
+      icon: <FaVolumeUp />, 
+      color: '#ec4899', 
+      dataKey: 'noise', 
+      unit: 'dB',
+      description: 'Average and Peak noise levels',
+      comingSoon: true
+    }
   ];
 
-  const getTabContent = () => {
-    if (!latestReading) return { value: '--', status: 'No Data', trend: '--', history: [0,0,0,0,0,0,0] };
+  // Calculate current value for the active graph
+  const getCurrentValue = () => {
+    if (!chartData.length) return '--';
+    const latest = chartData[chartData.length - 1];
+    const activeGraphConfig = graphs.find(g => g.id === activeGraph);
     
-    switch(activeTab) {
-      case 'thermal': 
-        const tempHistory = sensorData.slice(-7).map(d => d.temperature);
-        return { 
-          value: `${latestReading.temperature}°C`, 
-          status: latestReading.temperature > thresholdTemp ? 'Alert' : 'Normal',
-          trend: tempHistory.length > 1 ? (tempHistory[tempHistory.length-1] - tempHistory[0]).toFixed(1) : '0',
-          history: tempHistory,
-          color: '#f97316'
-        };
-      case 'humidity':
-        const humidityHistory = sensorData.slice(-7).map(d => d.humidity);
-        return { 
-          value: `${latestReading.humidity}%`, 
-          status: latestReading.humidity > 60 ? 'High' : latestReading.humidity < 30 ? 'Low' : 'Normal',
-          trend: humidityHistory.length > 1 ? (humidityHistory[humidityHistory.length-1] - humidityHistory[0]).toFixed(1) : '0',
-          history: humidityHistory,
-          color: '#3b82f6'
-        };
-      case 'voc':
-        const vocHistory = sensorData.slice(-7).map(d => d.voc > 50000 ? 50000 : d.voc);
-        return { 
-          value: latestReading.voc > 50000 ? '>50k' : `${latestReading.voc}`, 
-          status: latestReading.voc > thresholdVOC ? 'Alert' : 'Normal',
-          trend: vocHistory.length > 1 ? (vocHistory[vocHistory.length-1] - vocHistory[0]).toFixed(0) : '0',
-          history: vocHistory,
-          color: '#10b981'
-        };
-      default: return { value: '--', status: 'Normal', trend: '0', history: [0,0,0,0,0,0,0], color: '#8b5cf6' };
+    if (activeGraphConfig?.comingSoon) {
+      return 'Coming Soon';
     }
+    
+    const value = latest[activeGraphConfig?.dataKey];
+    if (value === undefined || value === null) return '--';
+    return `${value} ${activeGraphConfig?.unit || ''}`;
   };
 
-  const tabContent = getTabContent();
+  // Calculate average for the active graph
+  const getAverageValue = () => {
+    if (!chartData.length) return '--';
+    const activeGraphConfig = graphs.find(g => g.id === activeGraph);
+    
+    if (activeGraphConfig?.comingSoon) {
+      return '--';
+    }
+    
+    const values = chartData.map(d => d[activeGraphConfig?.dataKey]).filter(v => v !== undefined && v !== null);
+    if (values.length === 0) return '--';
+    const avg = values.reduce((a, b) => a + b, 0) / values.length;
+    return `${avg.toFixed(1)} ${activeGraphConfig?.unit || ''}`;
+  };
+
+  // Get trend
+  const getTrend = () => {
+    if (chartData.length < 2) return { value: 0, direction: 'stable' };
+    const activeGraphConfig = graphs.find(g => g.id === activeGraph);
+    
+    if (activeGraphConfig?.comingSoon) {
+      return { value: 0, direction: 'stable' };
+    }
+    
+    const latest = chartData[chartData.length - 1][activeGraphConfig?.dataKey];
+    const previous = chartData[chartData.length - 2][activeGraphConfig?.dataKey];
+    
+    if (latest === undefined || previous === undefined) return { value: 0, direction: 'stable' };
+    
+    const change = latest - previous;
+    const direction = change > 0 ? 'up' : change < 0 ? 'down' : 'stable';
+    return { value: Math.abs(change).toFixed(1), direction };
+  };
+
+  const trend = getTrend();
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
+      const activeGraphConfig = graphs.find(g => g.id === activeGraph);
       return (
         <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200">
           <p className="text-xs text-gray-500 mb-1">{label}</p>
-          {payload.map((p, i) => (
-            <p key={i} className="text-sm font-semibold" style={{ color: p.color }}>
-              {p.name}: {p.value} {p.unit}
-            </p>
-          ))}
+          <p className="text-sm font-semibold" style={{ color: activeGraphConfig?.color }}>
+            {activeGraphConfig?.label}: {payload[0].value} {activeGraphConfig?.unit}
+          </p>
         </div>
       );
     }
@@ -292,9 +320,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
-      
-
-      {/* Filters Section - Reorganized */}
+      {/* Filters Section */}
       {showFilters && (
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 sm:p-5 mb-6 shadow-lg border border-gray-100">
           <div className="flex justify-between items-center mb-4">
@@ -302,34 +328,39 @@ const Dashboard = () => {
               <FaFilter className="text-purple-500" />
               Filter Options
             </h3>
-            <button
-              onClick={handleResetFilters}
-              className="text-xs text-purple-600 hover:text-purple-700 font-medium"
-            >
-              Reset All Filters
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowFilters(false)}
+                className="text-xs text-gray-500 hover:text-gray-700"
+              >
+                Hide Filters
+              </button>
+              <button
+                onClick={handleResetFilters}
+                className="text-xs text-purple-600 hover:text-purple-700 font-medium"
+              >
+                Reset All
+              </button>
+            </div>
           </div>
           
-          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-            {/* States */}
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
                 <FaMapMarkerAlt className="text-xs" /> State
               </label>
               <select 
                 value={selectedState} 
-                onChange={(e) => {
-                  setSelectedState(e.target.value);
-                  setSelectedCity(''); // Reset city when state changes
-                }} 
+                onChange={(e) => setSelectedState(e.target.value)} 
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500"
               >
                 <option value="">All States</option>
-                {states.map(s => <option key={s}>{s}</option>)}
+                <option value="Maharashtra">Maharashtra</option>
+                <option value="Gujarat">Gujarat</option>
+                <option value="Karnataka">Karnataka</option>
               </select>
             </div>
 
-            {/* Cities */}
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
                 <FaCity className="text-xs" /> City
@@ -337,15 +368,15 @@ const Dashboard = () => {
               <select 
                 value={selectedCity} 
                 onChange={(e) => setSelectedCity(e.target.value)} 
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500" 
-                disabled={!selectedState}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500"
               >
                 <option value="">All Cities</option>
-                {selectedState && cities[selectedState]?.map(c => <option key={c}>{c}</option>)}
+                <option value="Mumbai">Mumbai</option>
+                <option value="Pune">Pune</option>
+                <option value="Bengaluru">Bengaluru</option>
               </select>
             </div>
 
-            {/* Plants */}
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
                 <FaIndustry className="text-xs" /> Plant
@@ -356,11 +387,12 @@ const Dashboard = () => {
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500"
               >
                 <option value="">All Plants</option>
-                {plants.map(p => <option key={p}>{p}</option>)}
+                <option value="Plant A">Plant A</option>
+                <option value="Plant B">Plant B</option>
+                <option value="Plant C">Plant C</option>
               </select>
             </div>
 
-            {/* Zones */}
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
                 <FaChartBar className="text-xs" /> Zone
@@ -371,11 +403,12 @@ const Dashboard = () => {
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500"
               >
                 <option value="">All Zones</option>
-                {zones.map(z => <option key={z}>{z}</option>)}
+                <option value="Zone 1">Zone 1</option>
+                <option value="Zone 2">Zone 2</option>
+                <option value="Zone 3">Zone 3</option>
               </select>
             </div>
 
-            {/* Devices */}
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
                 <FaMicrochip className="text-xs" /> Device
@@ -386,99 +419,102 @@ const Dashboard = () => {
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500"
               >
                 <option value="">All Devices</option>
-                {devices.map(d => <option key={d}>{d}</option>)}
+                <option value="Device 1">Device 1</option>
+                <option value="Device 2">Device 2</option>
               </select>
             </div>
 
-            {/* From Date */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
-                <FaCalendarAlt className="text-xs" /> From
-              </label>
-              <input 
-                type="date" 
-                value={dateFrom} 
-                onChange={(e) => setDateFrom(e.target.value)} 
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500" 
-              />
-            </div>
-
-            {/* To Date */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
-                <FaCalendarAlt className="text-xs" /> To
-              </label>
-              <input 
-                type="date" 
-                value={dateTo} 
-                onChange={(e) => setDateTo(e.target.value)} 
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500" 
-              />
-            </div>
-          </div>
-
-          {/* Active Filters Display */}
-          {(selectedState || selectedCity || selectedPlant || selectedZone || selectedDevice || (dateFrom !== '2024-01-01') || (dateTo !== '2024-12-31')) && (
-            <div className="mt-3 pt-3 border-t border-gray-200">
-              <p className="text-xs text-gray-500 mb-2">Active Filters:</p>
-              <div className="flex flex-wrap gap-2">
-                {selectedState && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
-                    State: {selectedState}
-                    <button onClick={() => setSelectedState('')} className="hover:text-purple-900">×</button>
-                  </span>
-                )}
-                {selectedCity && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
-                    City: {selectedCity}
-                    <button onClick={() => setSelectedCity('')} className="hover:text-blue-900">×</button>
-                  </span>
-                )}
-                {selectedPlant && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
-                    Plant: {selectedPlant}
-                    <button onClick={() => setSelectedPlant('')} className="hover:text-green-900">×</button>
-                  </span>
-                )}
-                {selectedZone && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs">
-                    Zone: {selectedZone}
-                    <button onClick={() => setSelectedZone('')} className="hover:text-orange-900">×</button>
-                  </span>
-                )}
-                {selectedDevice && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">
-                    Device: {selectedDevice}
-                    <button onClick={() => setSelectedDevice('')} className="hover:text-yellow-900">×</button>
-                  </span>
-                )}
-                {dateFrom !== '2024-01-01' && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
-                    From: {dateFrom}
-                    <button onClick={() => setDateFrom('2024-01-01')} className="hover:text-gray-900">×</button>
-                  </span>
-                )}
-                {dateTo !== '2024-12-31' && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
-                    To: {dateTo}
-                    <button onClick={() => setDateTo('2024-12-31')} className="hover:text-gray-900">×</button>
-                  </span>
-                )}
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                  <FaCalendarAlt className="text-xs" /> From
+                </label>
+                <input 
+                  type="date" 
+                  value={dateFrom} 
+                  onChange={(e) => setDateFrom(e.target.value)} 
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500" 
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                  <FaCalendarAlt className="text-xs" /> To
+                </label>
+                <input 
+                  type="date" 
+                  value={dateTo} 
+                  onChange={(e) => setDateTo(e.target.value)} 
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500" 
+                />
               </div>
             </div>
-          )}
+          </div>
         </div>
       )}
+
+      {/* Graph Selector Buttons */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        {graphs.map((graph) => (
+          <button
+            key={graph.id}
+            onClick={() => setActiveGraph(graph.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+              activeGraph === graph.id
+                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            <span className={activeGraph === graph.id ? 'text-white' : `text-${graph.color}`}>
+              {graph.icon}
+            </span>
+            {graph.label}
+            {graph.comingSoon && (
+              <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full ml-1">
+                Soon
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Current Value Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
+          <p className="text-gray-500 text-sm flex items-center gap-2">
+            {graphs.find(g => g.id === activeGraph)?.icon}
+            Current {graphs.find(g => g.id === activeGraph)?.label}
+          </p>
+          <p className="text-2xl font-bold text-gray-800">{getCurrentValue()}</p>
+          <div className="flex items-center gap-2 mt-2">
+            {trend.direction === 'up' && <FaArrowUp className="text-red-500" />}
+            {trend.direction === 'down' && <FaArrowDown className="text-green-500" />}
+            {trend.direction === 'stable' && <FaMinus className="text-yellow-500" />}
+            <span className="text-xs text-gray-500">Trend: {trend.value} {graphs.find(g => g.id === activeGraph)?.unit}</span>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
+          <p className="text-gray-500 text-sm">Average Value (24h)</p>
+          <p className="text-2xl font-bold text-gray-800">{getAverageValue()}</p>
+          <p className="text-xs text-gray-500 mt-2">Based on last 24 readings</p>
+        </div>
+        
+        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
+          <p className="text-gray-500 text-sm">Data Points</p>
+          <p className="text-2xl font-bold text-gray-800">{chartData.length}</p>
+          <p className="text-xs text-gray-500 mt-2">Last updated: {lastUpdate.toLocaleTimeString()}</p>
+        </div>
+      </div>
 
       {/* Main Chart Area */}
       <div id="chart-container" className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden mb-6 transition-all">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 sm:p-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
           <div>
             <h3 className="text-base sm:text-lg font-bold text-gray-800 flex items-center gap-2">
-              <FaTachometerAlt className="text-purple-500" />
-              REAL-TIME SENSOR DATA
+              {graphs.find(g => g.id === activeGraph)?.icon}
+              {graphs.find(g => g.id === activeGraph)?.label} TREND
             </h3>
-            <p className="text-xs sm:text-sm text-gray-500">Live monitoring • {sensorData.length} readings collected</p>
+            <p className="text-xs sm:text-sm text-gray-500">{graphs.find(g => g.id === activeGraph)?.description}</p>
           </div>
           <div className="flex gap-2">
             <button 
@@ -503,106 +539,55 @@ const Dashboard = () => {
             >
               {isFullscreen ? <FaCompress /> : <FaExpand />}
             </button>
-          </div>
-        </div>
-
-        <div className="p-4 sm:p-6">
-          <div className="mb-4 flex flex-wrap gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-              <span className="text-xs sm:text-sm font-medium">Temperature (°C)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-              <span className="text-xs sm:text-sm font-medium">Humidity (%)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-green-500"></div>
-              <span className="text-xs sm:text-sm font-medium">VOC (ppb)</span>
-            </div>
-          </div>
-          
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="time" tick={{ fontSize: 12 }} interval="preserveStartEnd" />
-              <YAxis yAxisId="left" tick={{ fontSize: 12 }} domain={['auto', 'auto']} />
-              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} domain={[0, 100]} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Line yAxisId="left" type="monotone" dataKey="temperature" stroke="#f97316" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 6 }} name="Temperature" unit="°C" />
-              <Line yAxisId="right" type="monotone" dataKey="humidity" stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 3 }} name="Humidity" unit="%" />
-              <Line yAxisId="left" type="monotone" dataKey="voc" stroke="#10b981" strokeWidth={2} dot={{ r: 2 }} name="VOC" unit="ppb" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Analytics Tabs */}
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-        <div className="border-b border-gray-200 bg-gray-50/50 overflow-x-auto">
-          <div className="flex min-w-max sm:min-w-0">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
-                  activeTab === tab.id 
-                    ? 'border-b-2 border-purple-500 text-purple-600 bg-white shadow-sm' 
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                }`}
+            {!showFilters && (
+              <button 
+                onClick={() => setShowFilters(true)} 
+                className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors" 
+                title="Show Filters"
               >
-                <span className={activeTab === tab.id ? 'text-purple-500' : 'text-gray-400'}>{tab.icon}</span>
-                {tab.label}
+                <FaFilter />
               </button>
-            ))}
+            )}
           </div>
         </div>
 
         <div className="p-4 sm:p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-            <div className="lg:col-span-1">
-              <div className="bg-gradient-to-br from-purple-50 via-pink-50 to-red-50 rounded-xl p-4 sm:p-5 shadow-inner">
-                <p className="text-xs sm:text-sm text-gray-500 mb-1">Current Value</p>
-                <p className="text-2xl sm:text-4xl font-bold text-gray-800">{tabContent.value}</p>
-                <div className="flex flex-wrap items-center gap-2 mt-2">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    tabContent.status === 'Alert' ? 'bg-red-100 text-red-600 animate-pulse' : 
-                    tabContent.status === 'High' ? 'bg-orange-100 text-orange-600' :
-                    tabContent.status === 'Low' ? 'bg-blue-100 text-blue-600' :
-                    'bg-green-100 text-green-600'
-                  }`}>
-                    {tabContent.status}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    {getTrendIcon(parseFloat(tabContent.trend), 0)}
-                    <span className="text-xs sm:text-sm text-gray-500">Trend: {tabContent.trend > 0 ? '+' : ''}{tabContent.trend}</span>
-                  </div>
+          {graphs.find(g => g.id === activeGraph)?.comingSoon ? (
+            <div className="flex flex-col items-center justify-center h-96 bg-gray-50 rounded-xl">
+              <div className="text-center">
+                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-purple-100 flex items-center justify-center">
+                  {graphs.find(g => g.id === activeGraph)?.icon}
                 </div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">Coming Soon</h3>
+                <p className="text-gray-500">Support for {graphs.find(g => g.id === activeGraph)?.label} will be available in the next update.</p>
               </div>
             </div>
-            <div className="lg:col-span-2">
-              <p className="text-xs sm:text-sm font-medium text-gray-600 mb-3">7-Day Trend History</p>
-              <ResponsiveContainer width="100%" height={150}>
-                <BarChart data={tabContent.history.map((val, idx) => ({ day: `D${idx + 1}`, value: val }))}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Bar dataKey="value" fill={tabContent.color}>
-                    {tabContent.history.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry > (activeTab === 'thermal' ? thresholdTemp : activeTab === 'voc' ? thresholdVOC : 50) ? '#ef4444' : tabContent.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={400}>
+              <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="time" tick={{ fontSize: 12 }} interval="preserveStartEnd" />
+                <YAxis tick={{ fontSize: 12 }} domain={['auto', 'auto']} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey={graphs.find(g => g.id === activeGraph)?.dataKey} 
+                  stroke={graphs.find(g => g.id === activeGraph)?.color} 
+                  strokeWidth={2.5} 
+                  dot={{ r: 3 }} 
+                  activeDot={{ r: 6 }} 
+                  name={graphs.find(g => g.id === activeGraph)?.label} 
+                  unit={graphs.find(g => g.id === activeGraph)?.unit} 
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
       {/* Recent Readings Table */}
-      <div className="mt-6 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
         <div className="p-4 sm:p-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
           <h3 className="text-base sm:text-lg font-bold text-gray-800 flex items-center gap-2">
             <FaMicrochip className="text-purple-500" />
@@ -626,16 +611,16 @@ const Dashboard = () => {
                 <tr key={idx} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 text-sm font-mono text-gray-700">{reading.device_id}</td>
                   <td className="px-4 py-3 text-sm">
-                    <span className={`font-semibold ${reading.temperature > thresholdTemp ? 'text-red-600' : 'text-gray-700'}`}>
+                    <span className={reading.temperature > 34 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
                       {reading.temperature}°C
                     </span>
-                   </td>
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-700">{reading.humidity}%</td>
                   <td className="px-4 py-3 text-sm">
-                    <span className={`${reading.voc > thresholdVOC ? 'text-red-600 font-semibold' : 'text-gray-700'}`}>
+                    <span className={reading.voc > 35000 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
                       {reading.voc > 50000 ? '>50k' : reading.voc}
                     </span>
-                    </td>
+                  </td>
                   <td className="px-4 py-3 text-xs text-gray-500">{new Date(reading.created_at).toLocaleString()}</td>
                 </tr>
               ))}
