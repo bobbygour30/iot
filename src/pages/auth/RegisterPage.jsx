@@ -1,4 +1,4 @@
-// src/pages/RegisterPage.jsx
+// src/pages/auth/RegisterPage.jsx
 import React, { useState } from 'react';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
@@ -15,7 +15,6 @@ const RegisterPage = () => {
     password: '',
     confirmPassword: '',
     companyName: '',
-    zoneName: '',
     address: '',
     state: '',
     city: '',
@@ -41,11 +40,9 @@ const RegisterPage = () => {
     e.preventDefault();
     const newErrors = {};
 
-    // Validation
     if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
     if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
     if (!formData.companyName.trim()) newErrors.companyName = 'Company name is required';
-    if (!formData.zoneName.trim()) newErrors.zoneName = 'Zone name is required';
     if (!formData.address.trim()) newErrors.address = 'Address is required';
     if (!formData.state.trim()) newErrors.state = 'State is required';
     if (!formData.city.trim()) newErrors.city = 'City is required';
@@ -73,7 +70,6 @@ const RegisterPage = () => {
           password: formData.password,
           phone: formData.phone,
           companyName: formData.companyName,
-          zoneName: formData.zoneName,
           address: formData.address,
           state: formData.state,
           city: formData.city,
@@ -93,18 +89,16 @@ const RegisterPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-50 to-blue-100 py-8 px-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/50 backdrop-blur-sm shadow-lg mb-4">
             <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-gray-700">Company Registration</h1>
-          <p className="text-gray-500 mt-2">Create your company account</p>
+          <h1 className="text-3xl font-bold text-gray-700">Create Account</h1>
+          <p className="text-gray-500 mt-2">Register your company account</p>
         </div>
 
-        {/* Main Form Card */}
         <div className="bg-white/60 backdrop-blur-sm rounded-2xl shadow-xl p-6 md:p-8 border border-white/40">
           {apiError && (
             <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
@@ -119,7 +113,7 @@ const RegisterPage = () => {
                 <span className="w-1 h-6 bg-pink-300 rounded-full"></span>
                 Company Information
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">Company Name *</label>
                   <input
@@ -132,22 +126,10 @@ const RegisterPage = () => {
                   />
                   {errors.companyName && <p className="text-xs text-pink-500 mt-1">{errors.companyName}</p>}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Zone Name *</label>
-                  <input
-                    type="text"
-                    name="zoneName"
-                    value={formData.zoneName}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 rounded-xl border border-pink-200 bg-pink-50/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-300 transition-all"
-                    placeholder="Enter zone name"
-                  />
-                  {errors.zoneName && <p className="text-xs text-pink-500 mt-1">{errors.zoneName}</p>}
-                </div>
               </div>
             </div>
 
-            {/* Location Section with Address Field */}
+            {/* Location Section */}
             <div>
               <h2 className="text-lg font-semibold text-gray-600 mb-4 flex items-center gap-2">
                 <span className="w-1 h-6 bg-blue-300 rounded-full"></span>
@@ -208,7 +190,7 @@ const RegisterPage = () => {
               </div>
             </div>
 
-            {/* User Credentials Section with First Name and Last Name */}
+            {/* User Credentials Section */}
             <div>
               <h2 className="text-lg font-semibold text-gray-600 mb-4 flex items-center gap-2">
                 <span className="w-1 h-6 bg-purple-300 rounded-full"></span>
@@ -265,7 +247,6 @@ const RegisterPage = () => {
                   {errors.phone && <p className="text-xs text-pink-500 mt-1">{errors.phone}</p>}
                 </div>
                 
-                {/* Password Field with Eye Icon */}
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">Password *</label>
                   <div className="relative">
@@ -288,7 +269,6 @@ const RegisterPage = () => {
                   {errors.password && <p className="text-xs text-pink-500 mt-1">{errors.password}</p>}
                 </div>
                 
-                {/* Confirm Password Field with Eye Icon */}
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">Confirm Password *</label>
                   <div className="relative">
@@ -313,7 +293,6 @@ const RegisterPage = () => {
               </div>
             </div>
 
-            {/* Submit Button */}
             <div className="pt-4">
               <button
                 type="submit"
@@ -334,12 +313,11 @@ const RegisterPage = () => {
               </button>
             </div>
 
-            {/* Login Link */}
             <div className="text-center pt-2">
               <p className="text-gray-500">
                 Already have an account?{' '}
                 <Link to="/login" className="text-purple-500 hover:text-purple-600 font-medium transition-colors">
-                   Login →
+                  Login →
                 </Link>
               </p>
             </div>

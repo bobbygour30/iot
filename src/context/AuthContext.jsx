@@ -14,7 +14,6 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [zone, setZone] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -29,8 +28,6 @@ export const AuthProvider = ({ children }) => {
         api.setToken(token);
         const response = await api.getCurrentUser();
         setUser(response.data.user);
-        setZone(response.data.zone);
-        // Store role in localStorage for quick access
         if (response.data.user?.role) {
           localStorage.setItem('userRole', response.data.user.role);
         }
@@ -49,7 +46,6 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await api.register(userData);
       setUser(response.data.user);
-      setZone(response.data.zone);
       if (response.data.user?.role) {
         localStorage.setItem('userRole', response.data.user.role);
       }
@@ -65,8 +61,6 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await api.login(credentials);
       setUser(response.data.user);
-      setZone(response.data.zone);
-      // Store role in localStorage for quick access
       if (response.data.user?.role) {
         localStorage.setItem('userRole', response.data.user.role);
       }
@@ -84,7 +78,6 @@ export const AuthProvider = ({ children }) => {
       console.error('Logout error:', error);
     } finally {
       setUser(null);
-      setZone(null);
       api.setToken(null);
       localStorage.removeItem('token');
       localStorage.removeItem('userRole');
@@ -93,7 +86,6 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
-    zone,
     loading,
     error,
     register,
