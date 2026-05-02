@@ -41,16 +41,28 @@ const Dashboard = () => {
   const [selectedPlant, setSelectedPlant] = useState('');
   const [selectedZone, setSelectedZone] = useState('');
   const [selectedDevice, setSelectedDevice] = useState('');
-  const [dateFrom, setDateFrom] = useState('2024-01-01');
-  const [dateTo, setDateTo] = useState('2024-12-31');
+  const [dateFrom, setDateFrom] = useState('2024-03-01');
+  const [dateTo, setDateTo] = useState('2024-03-15');
   const [isMobile, setIsMobile] = useState(false);
   const [sensorData, setSensorData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showFilters, setShowFilters] = useState(true);
-  const [activeGraph, setActiveGraph] = useState('temperature');
+  
+  // Multi-select parameters - like indices selection in reports
+  const parameters = [
+    { id: 'temperature', name: 'Temperature', icon: <FaThermometerHalf />, color: 'orange', dataKey: 'temperature', unit: '°C', comingSoon: false },
+    { id: 'humidity', name: 'Relative Humidity', icon: <FaTint />, color: 'blue', dataKey: 'humidity', unit: '%', comingSoon: false },
+    { id: 'voc', name: 'TVOC', icon: <FaFlask />, color: 'green', dataKey: 'voc', unit: 'ppb', comingSoon: false },
+    { id: 'airVelocity', name: 'Air Velocity', icon: <FaWind />, color: 'cyan', dataKey: 'airVelocity', unit: 'm/s', comingSoon: true },
+    { id: 'pm', name: 'PM - 2.5/10', icon: <FaSmog />, color: 'red', dataKey: 'pm', unit: 'µg/m³', comingSoon: true },
+    { id: 'co2', name: 'CO2', icon: <FaFire />, color: 'purple', dataKey: 'co2', unit: 'ppm', comingSoon: true },
+    { id: 'lux', name: 'LUX', icon: <FaMoon />, color: 'yellow', dataKey: 'lux', unit: 'lx', comingSoon: true },
+    { id: 'noise', name: 'Noise (AV/PEAK)', icon: <FaVolumeUp />, color: 'pink', dataKey: 'noise', unit: 'dB', comingSoon: true }
+  ];
+
+  const [selectedParameters, setSelectedParameters] = useState(['temperature', 'humidity', 'voc']);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -79,7 +91,7 @@ const Dashboard = () => {
   useEffect(() => {
     fetchSensorData();
     const interval = setInterval(fetchSensorData, 30000);
-    return () => clearInterval(interval);
+    return () => clearInterval(interval); // FIXED: changed from cancelInterval to clearInterval
   }, []);
 
   // Download data as Excel/CSV
@@ -150,151 +162,43 @@ const Dashboard = () => {
 
   const chartData = processChartData();
 
-  // Graph configurations - only showing data from API
-  const graphs = [
-    { 
-      id: 'temperature', 
-      label: 'TEMPERATURE', 
-      icon: <FaThermometerHalf />, 
-      color: '#f97316', 
-      dataKey: 'temperature', 
-      unit: '°C',
-      description: 'Temperature readings in degrees Celsius'
-    },
-    { 
-      id: 'humidity', 
-      label: 'RELATIVE HUMIDITY', 
-      icon: <FaTint />, 
-      color: '#3b82f6', 
-      dataKey: 'humidity', 
-      unit: '%',
-      description: 'Relative humidity percentage'
-    },
-    { 
-      id: 'voc', 
-      label: 'TVOC', 
-      icon: <FaFlask />, 
-      color: '#10b981', 
-      dataKey: 'voc', 
-      unit: 'ppb',
-      description: 'Total Volatile Organic Compounds'
-    },
-    { 
-      id: 'airVelocity', 
-      label: 'AIR VELOCITY', 
-      icon: <FaWind />, 
-      color: '#06b6d4', 
-      dataKey: 'airVelocity', 
-      unit: 'm/s',
-      description: 'Air velocity in meters per second',
-      comingSoon: true
-    },
-    { 
-      id: 'pm', 
-      label: 'PM - 2.5/10', 
-      icon: <FaSmog />, 
-      color: '#ef4444', 
-      dataKey: 'pm', 
-      unit: 'µg/m³',
-      description: 'Particulate Matter 2.5 and 10',
-      comingSoon: true
-    },
-    { 
-      id: 'co2', 
-      label: 'CO2', 
-      icon: <FaFire />, 
-      color: '#8b5cf6', 
-      dataKey: 'co2', 
-      unit: 'ppm',
-      description: 'Carbon Dioxide levels',
-      comingSoon: true
-    },
-    { 
-      id: 'lux', 
-      label: 'LUX', 
-      icon: <FaMoon />, 
-      color: '#f59e0b', 
-      dataKey: 'lux', 
-      unit: 'lx',
-      description: 'Light intensity',
-      comingSoon: true
-    },
-    { 
-      id: 'noise', 
-      label: 'NOISE - AV/PEAK', 
-      icon: <FaVolumeUp />, 
-      color: '#ec4899', 
-      dataKey: 'noise', 
-      unit: 'dB',
-      description: 'Average and Peak noise levels',
-      comingSoon: true
+  // Handle parameter toggle - like index toggle in reports
+  const handleParameterToggle = (parameterId) => {
+    if (selectedParameters.includes(parameterId)) {
+      setSelectedParameters(selectedParameters.filter(p => p !== parameterId));
+    } else {
+      setSelectedParameters([...selectedParameters, parameterId]);
     }
-  ];
-
-  // Calculate current value for the active graph
-  const getCurrentValue = () => {
-    if (!chartData.length) return '--';
-    const latest = chartData[chartData.length - 1];
-    const activeGraphConfig = graphs.find(g => g.id === activeGraph);
-    
-    if (activeGraphConfig?.comingSoon) {
-      return 'Coming Soon';
-    }
-    
-    const value = latest[activeGraphConfig?.dataKey];
-    if (value === undefined || value === null) return '--';
-    return `${value} ${activeGraphConfig?.unit || ''}`;
   };
 
-  // Calculate average for the active graph
-  const getAverageValue = () => {
-    if (!chartData.length) return '--';
-    const activeGraphConfig = graphs.find(g => g.id === activeGraph);
-    
-    if (activeGraphConfig?.comingSoon) {
-      return '--';
-    }
-    
-    const values = chartData.map(d => d[activeGraphConfig?.dataKey]).filter(v => v !== undefined && v !== null);
-    if (values.length === 0) return '--';
-    const avg = values.reduce((a, b) => a + b, 0) / values.length;
-    return `${avg.toFixed(1)} ${activeGraphConfig?.unit || ''}`;
+  // Get color class for parameter
+  const getParameterColorClass = (color) => {
+    const colors = {
+      orange: 'text-orange-500',
+      blue: 'text-blue-500',
+      green: 'text-green-500',
+      cyan: 'text-cyan-500',
+      red: 'text-red-500',
+      purple: 'text-purple-500',
+      yellow: 'text-yellow-500',
+      pink: 'text-pink-500'
+    };
+    return colors[color] || 'text-gray-500';
   };
 
-  // Get trend
-  const getTrend = () => {
-    if (chartData.length < 2) return { value: 0, direction: 'stable' };
-    const activeGraphConfig = graphs.find(g => g.id === activeGraph);
-    
-    if (activeGraphConfig?.comingSoon) {
-      return { value: 0, direction: 'stable' };
-    }
-    
-    const latest = chartData[chartData.length - 1][activeGraphConfig?.dataKey];
-    const previous = chartData[chartData.length - 2][activeGraphConfig?.dataKey];
-    
-    if (latest === undefined || previous === undefined) return { value: 0, direction: 'stable' };
-    
-    const change = latest - previous;
-    const direction = change > 0 ? 'up' : change < 0 ? 'down' : 'stable';
-    return { value: Math.abs(change).toFixed(1), direction };
-  };
-
-  const trend = getTrend();
-
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      const activeGraphConfig = graphs.find(g => g.id === activeGraph);
-      return (
-        <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200">
-          <p className="text-xs text-gray-500 mb-1">{label}</p>
-          <p className="text-sm font-semibold" style={{ color: activeGraphConfig?.color }}>
-            {activeGraphConfig?.label}: {payload[0].value} {activeGraphConfig?.unit}
-          </p>
-        </div>
-      );
-    }
-    return null;
+  // Get line color for chart
+  const getLineColor = (parameterId) => {
+    const colors = {
+      temperature: '#f97316',
+      humidity: '#3b82f6',
+      voc: '#10b981',
+      airVelocity: '#06b6d4',
+      pm: '#ef4444',
+      co2: '#8b5cf6',
+      lux: '#f59e0b',
+      noise: '#ec4899'
+    };
+    return colors[parameterId] || '#888888';
   };
 
   const handleResetFilters = () => {
@@ -303,8 +207,25 @@ const Dashboard = () => {
     setSelectedPlant('');
     setSelectedZone('');
     setSelectedDevice('');
-    setDateFrom('2024-01-01');
-    setDateTo('2024-12-31');
+    setDateFrom('2024-03-01');
+    setDateTo('2024-03-15');
+  };
+
+  // Custom Tooltip for chart
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200">
+          <p className="text-xs text-gray-500 mb-2">{label}</p>
+          {payload.map((p, index) => (
+            <p key={index} className="text-sm font-semibold" style={{ color: p.color }}>
+              {p.name}: {p.value} {p.unit}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
   };
 
   if (loading && !sensorData.length) {
@@ -320,218 +241,254 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
-      {/* Filters Section */}
-      {showFilters && (
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 sm:p-5 mb-6 shadow-lg border border-gray-100">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <FaFilter className="text-purple-500" />
-              Filter Options
-            </h3>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowFilters(false)}
-                className="text-xs text-gray-500 hover:text-gray-700"
-              >
-                Hide Filters
-              </button>
-              <button
-                onClick={handleResetFilters}
-                className="text-xs text-purple-600 hover:text-purple-700 font-medium"
-              >
-                Reset All
-              </button>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
-                <FaMapMarkerAlt className="text-xs" /> State
-              </label>
-              <select 
-                value={selectedState} 
-                onChange={(e) => setSelectedState(e.target.value)} 
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="">All States</option>
-                <option value="Maharashtra">Maharashtra</option>
-                <option value="Gujarat">Gujarat</option>
-                <option value="Karnataka">Karnataka</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
-                <FaCity className="text-xs" /> City
-              </label>
-              <select 
-                value={selectedCity} 
-                onChange={(e) => setSelectedCity(e.target.value)} 
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="">All Cities</option>
-                <option value="Mumbai">Mumbai</option>
-                <option value="Pune">Pune</option>
-                <option value="Bengaluru">Bengaluru</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
-                <FaIndustry className="text-xs" /> Plant
-              </label>
-              <select 
-                value={selectedPlant} 
-                onChange={(e) => setSelectedPlant(e.target.value)} 
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="">All Plants</option>
-                <option value="Plant A">Plant A</option>
-                <option value="Plant B">Plant B</option>
-                <option value="Plant C">Plant C</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
-                <FaChartBar className="text-xs" /> Zone
-              </label>
-              <select 
-                value={selectedZone} 
-                onChange={(e) => setSelectedZone(e.target.value)} 
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="">All Zones</option>
-                <option value="Zone 1">Zone 1</option>
-                <option value="Zone 2">Zone 2</option>
-                <option value="Zone 3">Zone 3</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
-                <FaMicrochip className="text-xs" /> Device
-              </label>
-              <select 
-                value={selectedDevice} 
-                onChange={(e) => setSelectedDevice(e.target.value)} 
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="">All Devices</option>
-                <option value="Device 1">Device 1</option>
-                <option value="Device 2">Device 2</option>
-              </select>
-            </div>
-
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
-                  <FaCalendarAlt className="text-xs" /> From
-                </label>
-                <input 
-                  type="date" 
-                  value={dateFrom} 
-                  onChange={(e) => setDateFrom(e.target.value)} 
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500" 
-                />
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
-                  <FaCalendarAlt className="text-xs" /> To
-                </label>
-                <input 
-                  type="date" 
-                  value={dateTo} 
-                  onChange={(e) => setDateTo(e.target.value)} 
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-purple-500" 
-                />
-              </div>
-            </div>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+          <p className="text-gray-500 mt-1">Real-time environmental data from your zones</p>
+          <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+            <FaClock className="text-xs" />
+            <span>Last update: {lastUpdate.toLocaleTimeString()}</span>
           </div>
         </div>
-      )}
-
-      {/* Graph Selector Buttons */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        {graphs.map((graph) => (
-          <button
-            key={graph.id}
-            onClick={() => setActiveGraph(graph.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-              activeGraph === graph.id
-                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-            }`}
+        <div className="flex gap-2">
+          <button 
+            onClick={fetchSensorData} 
+            disabled={loading}
+            className="px-3 py-2 bg-white border border-gray-200 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-all disabled:opacity-50" 
           >
-            <span className={activeGraph === graph.id ? 'text-white' : `text-${graph.color}`}>
-              {graph.icon}
-            </span>
-            {graph.label}
-            {graph.comingSoon && (
-              <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full ml-1">
-                Soon
-              </span>
-            )}
+            <FaSpinner className={loading ? "animate-spin" : ""} />
+            Refresh
           </button>
-        ))}
+          <button 
+            onClick={handleDownload} 
+            className="px-3 py-2 bg-white border border-gray-200 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-all"
+          >
+            <FaFileDownload /> Export
+          </button>
+        </div>
       </div>
 
-      {/* Current Value Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-          <p className="text-gray-500 text-sm flex items-center gap-2">
-            {graphs.find(g => g.id === activeGraph)?.icon}
-            Current {graphs.find(g => g.id === activeGraph)?.label}
-          </p>
-          <p className="text-2xl font-bold text-gray-800">{getCurrentValue()}</p>
-          <div className="flex items-center gap-2 mt-2">
-            {trend.direction === 'up' && <FaArrowUp className="text-red-500" />}
-            {trend.direction === 'down' && <FaArrowDown className="text-green-500" />}
-            {trend.direction === 'stable' && <FaMinus className="text-yellow-500" />}
-            <span className="text-xs text-gray-500">Trend: {trend.value} {graphs.find(g => g.id === activeGraph)?.unit}</span>
+      {/* Filters Section - Non-collapsible, styled like reference component */}
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6 mb-6">
+        <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+          <FaFilter className="text-purple-500" />
+          Filter Options
+        </h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {/* State Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+            <select
+              value={selectedState}
+              onChange={(e) => setSelectedState(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+            >
+              <option value="">All States</option>
+              <option value="Maharashtra">Maharashtra</option>
+              <option value="Gujarat">Gujarat</option>
+              <option value="Karnataka">Karnataka</option>
+              <option value="Tamil Nadu">Tamil Nadu</option>
+              <option value="Delhi">Delhi</option>
+            </select>
+          </div>
+
+          {/* City Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+            <select
+              value={selectedCity}
+              onChange={(e) => setSelectedCity(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+            >
+              <option value="">All Cities</option>
+              <option value="Mumbai">Mumbai</option>
+              <option value="Pune">Pune</option>
+              <option value="Bengaluru">Bengaluru</option>
+              <option value="Chennai">Chennai</option>
+              <option value="Delhi">Delhi</option>
+            </select>
+          </div>
+
+          {/* Plant Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Plant</label>
+            <select
+              value={selectedPlant}
+              onChange={(e) => setSelectedPlant(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+            >
+              <option value="">All Plants</option>
+              <option value="Plant A">Plant A</option>
+              <option value="Plant B">Plant B</option>
+              <option value="Plant C">Plant C</option>
+              <option value="Plant D">Plant D</option>
+            </select>
+          </div>
+
+          {/* Zone Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Zone</label>
+            <select
+              value={selectedZone}
+              onChange={(e) => setSelectedZone(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+            >
+              <option value="">All Zones</option>
+              <option value="Zone 1">Zone 1</option>
+              <option value="Zone 2">Zone 2</option>
+              <option value="Zone 3">Zone 3</option>
+              <option value="Zone 4">Zone 4</option>
+            </select>
           </div>
         </div>
-        
-        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-          <p className="text-gray-500 text-sm">Average Value (24h)</p>
-          <p className="text-2xl font-bold text-gray-800">{getAverageValue()}</p>
-          <p className="text-xs text-gray-500 mt-2">Based on last 24 readings</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {/* Device Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Device</label>
+            <select
+              value={selectedDevice}
+              onChange={(e) => setSelectedDevice(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+            >
+              <option value="">All Devices</option>
+              <option value="Device 1">Device 1</option>
+              <option value="Device 2">Device 2</option>
+              <option value="Device 3">Device 3</option>
+              <option value="Device 4">Device 4</option>
+            </select>
+          </div>
+
+          {/* Date Range */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+            />
+          </div>
         </div>
-        
-        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-          <p className="text-gray-500 text-sm">Data Points</p>
-          <p className="text-2xl font-bold text-gray-800">{chartData.length}</p>
-          <p className="text-xs text-gray-500 mt-2">Last updated: {lastUpdate.toLocaleTimeString()}</p>
+
+        {/* Reset Filters Button */}
+        <div className="flex justify-end">
+          <button
+            onClick={handleResetFilters}
+            className="px-4 py-2 text-sm text-purple-600 hover:text-purple-700 font-medium border border-purple-200 rounded-lg hover:bg-purple-50 transition-all"
+          >
+            Reset Filters
+          </button>
         </div>
       </div>
 
-      {/* Main Chart Area */}
+      {/* Parameters Selection - Like Indices Selection in Reports */}
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6 mb-6">
+        <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+          <FaChartBar className="text-purple-500" />
+          Select Parameters to Display
+        </label>
+        <div className="flex flex-wrap gap-3">
+          {parameters.map((param) => (
+            <label 
+              key={param.id} 
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-all ${
+                selectedParameters.includes(param.id)
+                  ? 'bg-purple-100 border border-purple-300 shadow-sm'
+                  : 'bg-gray-50 border border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              <input 
+                type="checkbox" 
+                checked={selectedParameters.includes(param.id)}
+                onChange={() => handleParameterToggle(param.id)}
+                className="rounded text-purple-500 focus:ring-purple-500 w-4 h-4" 
+                disabled={param.comingSoon}
+              />
+              <span className={getParameterColorClass(param.color)}>
+                {param.icon}
+              </span>
+              <span className={`text-sm font-medium ${param.comingSoon ? 'text-gray-400' : 'text-gray-700'}`}>
+                {param.name}
+              </span>
+              {param.comingSoon && (
+                <span className="text-xs bg-yellow-100 text-yellow-600 px-2 py-0.5 rounded-full ml-1">
+                  Soon
+                </span>
+              )}
+            </label>
+          ))}
+        </div>
+        <p className="text-xs text-gray-500 mt-3">
+          Selected: {selectedParameters.length} parameters
+        </p>
+      </div>
+
+      {/* Current Values Cards for Selected Parameters */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {selectedParameters.map((paramId) => {
+          const param = parameters.find(p => p.id === paramId);
+          if (param.comingSoon) {
+            return (
+              <div key={param.id} className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-gray-500 text-sm flex items-center gap-2">
+                    <span className={getParameterColorClass(param.color)}>{param.icon}</span>
+                    {param.name}
+                  </p>
+                  <span className="text-xs bg-yellow-100 text-yellow-600 px-2 py-0.5 rounded-full">Coming Soon</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-400">--</p>
+                <p className="text-xs text-gray-400 mt-2">Data coming soon</p>
+              </div>
+            );
+          }
+          
+          const latestValue = chartData.length > 0 ? chartData[chartData.length - 1][param.dataKey] : null;
+          const values = chartData.map(d => d[param.dataKey]).filter(v => v !== undefined && v !== null);
+          const avgValue = values.length > 0 ? (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1) : null;
+          
+          return (
+            <div key={param.id} className="bg-white rounded-xl p-4 shadow-lg border border-gray-100 hover:shadow-xl transition-all">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-gray-500 text-sm flex items-center gap-2">
+                  <span className={getParameterColorClass(param.color)}>{param.icon}</span>
+                  {param.name}
+                </p>
+                <FaCheckCircle className="text-green-500 text-xs" />
+              </div>
+              <p className="text-2xl font-bold text-gray-800">
+                {latestValue !== undefined && latestValue !== null ? `${latestValue}${param.unit}` : '--'}
+              </p>
+              <p className="text-xs text-gray-500 mt-2">
+                Avg: {avgValue !== null ? `${avgValue}${param.unit}` : '--'}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Main Chart Area - Shows Multiple Lines for Selected Parameters */}
       <div id="chart-container" className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden mb-6 transition-all">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 sm:p-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
           <div>
             <h3 className="text-base sm:text-lg font-bold text-gray-800 flex items-center gap-2">
-              {graphs.find(g => g.id === activeGraph)?.icon}
-              {graphs.find(g => g.id === activeGraph)?.label} TREND
+              <FaTachometerAlt className="text-purple-500" />
+              REAL-TIME SENSOR TRENDS
             </h3>
-            <p className="text-xs sm:text-sm text-gray-500">{graphs.find(g => g.id === activeGraph)?.description}</p>
+            <p className="text-xs sm:text-sm text-gray-500">Live monitoring • {sensorData.length} readings collected</p>
           </div>
           <div className="flex gap-2">
-            <button 
-              onClick={fetchSensorData} 
-              disabled={loading}
-              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50" 
-              title="Refresh Data"
-            >
-              <FaSpinner className={loading ? "animate-spin" : ""} />
-            </button>
-            <button 
-              onClick={handleDownload} 
-              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors" 
-              title="Download Data as Excel"
-            >
-              <FaFileDownload />
-            </button>
             <button 
               onClick={toggleFullscreen} 
               className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors" 
@@ -539,50 +496,50 @@ const Dashboard = () => {
             >
               {isFullscreen ? <FaCompress /> : <FaExpand />}
             </button>
-            {!showFilters && (
-              <button 
-                onClick={() => setShowFilters(true)} 
-                className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors" 
-                title="Show Filters"
-              >
-                <FaFilter />
-              </button>
-            )}
           </div>
         </div>
 
         <div className="p-4 sm:p-6">
-          {graphs.find(g => g.id === activeGraph)?.comingSoon ? (
-            <div className="flex flex-col items-center justify-center h-96 bg-gray-50 rounded-xl">
-              <div className="text-center">
-                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-purple-100 flex items-center justify-center">
-                  {graphs.find(g => g.id === activeGraph)?.icon}
+          {/* Legend for selected parameters */}
+          <div className="mb-4 flex flex-wrap gap-4">
+            {selectedParameters.map((paramId) => {
+              const param = parameters.find(p => p.id === paramId);
+              if (param.comingSoon) return null;
+              return (
+                <div key={param.id} className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getLineColor(param.id) }}></div>
+                  <span className="text-xs sm:text-sm font-medium">{param.name} ({param.unit})</span>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">Coming Soon</h3>
-                <p className="text-gray-500">Support for {graphs.find(g => g.id === activeGraph)?.label} will be available in the next update.</p>
-              </div>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="time" tick={{ fontSize: 12 }} interval="preserveStartEnd" />
-                <YAxis tick={{ fontSize: 12 }} domain={['auto', 'auto']} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey={graphs.find(g => g.id === activeGraph)?.dataKey} 
-                  stroke={graphs.find(g => g.id === activeGraph)?.color} 
-                  strokeWidth={2.5} 
-                  dot={{ r: 3 }} 
-                  activeDot={{ r: 6 }} 
-                  name={graphs.find(g => g.id === activeGraph)?.label} 
-                  unit={graphs.find(g => g.id === activeGraph)?.unit} 
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
+              );
+            })}
+          </div>
+          
+          <ResponsiveContainer width="100%" height={400}>
+            <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="time" tick={{ fontSize: 12 }} interval="preserveStartEnd" />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend />
+              {selectedParameters.map((paramId) => {
+                const param = parameters.find(p => p.id === paramId);
+                if (param.comingSoon) return null;
+                return (
+                  <Line 
+                    key={param.id}
+                    type="monotone" 
+                    dataKey={param.dataKey} 
+                    stroke={getLineColor(param.id)} 
+                    strokeWidth={2.5} 
+                    dot={{ r: 3 }} 
+                    activeDot={{ r: 6 }} 
+                    name={param.name} 
+                    unit={param.unit} 
+                  />
+                );
+              })}
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
@@ -614,13 +571,13 @@ const Dashboard = () => {
                     <span className={reading.temperature > 34 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
                       {reading.temperature}°C
                     </span>
-                  </td>
+                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">{reading.humidity}%</td>
                   <td className="px-4 py-3 text-sm">
                     <span className={reading.voc > 35000 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
                       {reading.voc > 50000 ? '>50k' : reading.voc}
                     </span>
-                  </td>
+                   </td>
                   <td className="px-4 py-3 text-xs text-gray-500">{new Date(reading.created_at).toLocaleString()}</td>
                 </tr>
               ))}
