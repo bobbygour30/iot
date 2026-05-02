@@ -3,11 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   FaIndustry, 
   FaPlus, 
-  FaCheck, 
   FaTrash,
   FaSpinner,
-  FaEdit,
-  FaEye
+  FaEdit
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -22,12 +20,9 @@ const CreatePlant = () => {
   const [currentPlant, setCurrentPlant] = useState({
     name: '',
     location: '',
-    type: '',
     description: ''
   });
   const [message, setMessage] = useState({ type: '', text: '' });
-
-  const plantTypes = ['Manufacturing', 'Processing', 'Assembly', 'Warehouse', 'R&D'];
 
   useEffect(() => {
     fetchPlants();
@@ -91,14 +86,13 @@ const CreatePlant = () => {
     setCurrentPlant({
       name: plant.name,
       location: plant.location || '',
-      type: plant.type || '',
       description: plant.description || ''
     });
     setShowForm(true);
   };
 
   const resetForm = () => {
-    setCurrentPlant({ name: '', location: '', type: '', description: '' });
+    setCurrentPlant({ name: '', location: '', description: '' });
     setEditingPlant(null);
     setShowForm(false);
   };
@@ -161,17 +155,6 @@ const CreatePlant = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Plant Type *</label>
-                  <select
-                    value={currentPlant.type}
-                    onChange={(e) => setCurrentPlant({ ...currentPlant, type: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="">Select plant type</option>
-                    {plantTypes.map(type => <option key={type} value={type}>{type}</option>)}
-                  </select>
-                </div>
-                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
                   <input
                     type="text"
@@ -181,13 +164,13 @@ const CreatePlant = () => {
                     placeholder="City, State"
                   />
                 </div>
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
                   <textarea
                     value={currentPlant.description}
                     onChange={(e) => setCurrentPlant({ ...currentPlant, description: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500"
-                    rows="1"
+                    rows="2"
                     placeholder="Brief description"
                   />
                 </div>
@@ -234,7 +217,6 @@ const CreatePlant = () => {
                       <FaIndustry className="text-purple-500 text-xl" />
                       <h3 className="font-semibold text-gray-800">{plant.name}</h3>
                     </div>
-                    <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-full">{plant.type}</span>
                   </div>
                   {plant.location && (
                     <p className="text-sm text-gray-500 flex items-center gap-1 mb-1">
