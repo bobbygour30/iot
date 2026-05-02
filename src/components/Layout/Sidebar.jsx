@@ -126,20 +126,7 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
         </div>
       </div>
 
-      {/* User Info */}
-      {!sidebarCollapsed && (
-        <div className="p-4 mx-3 mt-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
-              {getUserInitials()}
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-gray-800">{getUserName()}</p>
-              <p className="text-xs text-gray-500">User</p>
-            </div>
-          </div>
-        </div>
-      )}
+     
 
       {/* Menu Items */}
       <nav className="flex-1 py-6 overflow-y-auto">
