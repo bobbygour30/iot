@@ -8,10 +8,13 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaChartBar,
-  FaSignOutAlt
+  FaSignOutAlt,
+  FaIndustry,
+  FaMicrochip,
+  FaCog
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
-import assets from '../../assets/assets'
+import assets from '../../assets/assets';
 
 const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOpen, setMobileMenuOpen }) => {
   const navigate = useNavigate();
@@ -27,11 +30,25 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
       description: 'Overview & Analytics'
     },
     { 
+      id: 'createPlant', 
+      name: 'Create Plant', 
+      path: '/dashboard/create-plant', 
+      icon: <FaIndustry />,
+      description: 'Add New Plant'
+    },
+    { 
       id: 'createZone', 
       name: 'Create Zone', 
       path: '/dashboard/create-zone', 
-      icon: <FaPlusCircle />,
-      description: 'Create New Zone'
+      icon: <FaMicrochip />,
+      description: 'Add New Zone'
+    },
+    { 
+      id: 'addDevice', 
+      name: 'Add Device', 
+      path: '/dashboard/add-device', 
+      icon: <FaCog />,
+      description: 'Register New Device'
     },
     { 
       id: 'reports', 
@@ -96,7 +113,6 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
       {/* Logo Section with Image */}
       <div className="p-5 border-b border-gray-200">
         <div className="flex items-center gap-3">
-          {/* Image Logo */}
           <img 
             src={assets.logo} 
             alt="ZoneMonitor Logo" 
@@ -110,7 +126,20 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
         </div>
       </div>
 
-      
+      {/* User Info */}
+      {!sidebarCollapsed && (
+        <div className="p-4 mx-3 mt-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
+              {getUserInitials()}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-gray-800">{getUserName()}</p>
+              <p className="text-xs text-gray-500">User</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Menu Items */}
       <nav className="flex-1 py-6 overflow-y-auto">

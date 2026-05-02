@@ -9,6 +9,9 @@ import CreateZone from './pages/CreateZone';
 import Reports from './pages/Reports';
 import ProtectedRoute from './components/ProtectedRoute';
 import UserLayout from './components/Layout/UserLayout';
+import CreatePlant from './pages/CreatePlant';
+import CreateZoneOnly from './pages/CreateZoneOnly';
+import AddDevice from './pages/AddDevice';
 
 // Admin imports
 import AdminLayout from './components/Layout/AdminLayout';
@@ -38,6 +41,10 @@ const App = () => {
             }
           >
             <Route index element={<Dashboard />} />
+          
+<Route path="create-plant" element={<CreatePlant />} />
+<Route path="create-zone" element={<CreateZoneOnly />} />
+<Route path="add-device" element={<AddDevice />} />
             <Route path="create-zone" element={<CreateZone />} />
             <Route path="reports" element={<Reports />} />
           </Route>
