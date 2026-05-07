@@ -27,10 +27,8 @@ const PlantsManagement = () => {
   const [selectedPlant, setSelectedPlant] = useState(null);
   const [error, setError] = useState('');
   const [newPlant, setNewPlant] = useState({
-    name: '', type: '', location: '', description: '', status: 'active'
+    name: '', location: '', description: '', status: 'active'
   });
-
-  const plantTypes = ['Manufacturing', 'Processing', 'Assembly', 'Warehouse', 'R&D'];
 
   useEffect(() => {
     fetchPlants();
@@ -62,7 +60,7 @@ const PlantsManagement = () => {
       const response = await api.createAdminPlant(newPlant);
       setPlants([response.data, ...plants]);
       setShowAddModal(false);
-      setNewPlant({ name: '', type: '', location: '', description: '', status: 'active' });
+      setNewPlant({ name: '', location: '', description: '', status: 'active' });
       setError('');
     } catch (err) {
       setError(err.message);
@@ -71,7 +69,12 @@ const PlantsManagement = () => {
 
   const handleUpdatePlant = async () => {
     try {
-      const response = await api.updateAdminPlant(selectedPlant._id, selectedPlant);
+      const response = await api.updateAdminPlant(selectedPlant._id, {
+        name: selectedPlant.name,
+        location: selectedPlant.location,
+        description: selectedPlant.description,
+        isActive: selectedPlant.isActive
+      });
       setPlants(plants.map(p => p._id === selectedPlant._id ? response.data : p));
       setShowEditModal(false);
       setSelectedPlant(null);
@@ -175,7 +178,6 @@ const PlantsManagement = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Plant Name</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Type</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Location</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Devices</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
@@ -191,9 +193,6 @@ const PlantsManagement = () => {
                       <FaIndustry className="text-purple-500" />
                       <span className="font-medium text-gray-800">{plant.name}</span>
                     </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm text-gray-600">{plant.type}</span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1 text-sm text-gray-600">
@@ -262,18 +261,8 @@ const PlantsManagement = () => {
                       value={newPlant.name}
                       onChange={(e) => setNewPlant({...newPlant, name: e.target.value})}
                       className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500"
+                      placeholder="Enter plant name"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Plant Type *</label>
-                    <select
-                      value={newPlant.type}
-                      onChange={(e) => setNewPlant({...newPlant, type: e.target.value})}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500"
-                    >
-                      <option value="">Select Type</option>
-                      {plantTypes.map(type => <option key={type} value={type}>{type}</option>)}
-                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
@@ -282,6 +271,7 @@ const PlantsManagement = () => {
                       value={newPlant.location}
                       onChange={(e) => setNewPlant({...newPlant, location: e.target.value})}
                       className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500"
+                      placeholder="City, State"
                     />
                   </div>
                   <div>
@@ -291,6 +281,7 @@ const PlantsManagement = () => {
                       onChange={(e) => setNewPlant({...newPlant, description: e.target.value})}
                       className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500"
                       rows="2"
+                      placeholder="Brief description"
                     />
                   </div>
                 </div>
@@ -332,22 +323,21 @@ const PlantsManagement = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Plant Type</label>
-                    <select
-                      value={selectedPlant.type}
-                      onChange={(e) => setSelectedPlant({...selectedPlant, type: e.target.value})}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500"
-                    >
-                      {plantTypes.map(type => <option key={type} value={type}>{type}</option>)}
-                    </select>
-                  </div>
-                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
                     <input
                       type="text"
                       value={selectedPlant.location || ''}
                       onChange={(e) => setSelectedPlant({...selectedPlant, location: e.target.value})}
                       className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea
+                      value={selectedPlant.description || ''}
+                      onChange={(e) => setSelectedPlant({...selectedPlant, description: e.target.value})}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500"
+                      rows="2"
                     />
                   </div>
                   <div>
