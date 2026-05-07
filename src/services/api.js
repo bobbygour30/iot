@@ -3,11 +3,10 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 class ApiService {
   constructor() {
-    this.token = localStorage.getItem('token');
+    // Don't store token in memory, always read from localStorage
   }
 
   setToken(token) {
-    this.token = token;
     if (token) {
       localStorage.setItem('token', token);
     } else {
@@ -15,15 +14,23 @@ class ApiService {
     }
   }
 
-  getHeaders() {
-    const headers = {
-      'Content-Type': 'application/json',
-    };
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
-    return headers;
+  getToken() {
+    return localStorage.getItem('token');
   }
+
+
+getHeaders() {
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  const token = this.getToken();
+  console.log('🔑 Getting headers, token exists:', !!token);
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+    console.log('🔑 Authorization header added');
+  }
+  return headers;
+}
 
   async request(endpoint, options = {}) {
     const url = `${API_URL}${endpoint}`;
@@ -32,17 +39,22 @@ class ApiService {
       headers: this.getHeaders(),
     };
 
+    console.log(`📡 API Request: ${options.method || 'GET'} ${endpoint}`);
+    console.log('🔑 Token present:', !!this.getToken());
+
     try {
       const response = await fetch(url, config);
       const data = await response.json();
 
       if (!response.ok) {
+        console.error(`❌ API Error ${response.status}:`, data.message);
         throw new Error(data.message || 'Something went wrong');
       }
 
+      console.log(`✅ API Success: ${endpoint}`);
       return data;
     } catch (error) {
-      console.error('API Error:', error);
+      console.error('❌ API Error:', error);
       throw error;
     }
   }
@@ -62,8 +74,9 @@ class ApiService {
       body: JSON.stringify(credentials),
     });
     
-    if (response.data.token) {
+    if (response.data?.token) {
       this.setToken(response.data.token);
+      console.log('🔐 Token stored successfully');
     }
     
     return response;
@@ -181,7 +194,6 @@ class ApiService {
 
   // ==================== ADMIN DASHBOARD ENDPOINTS ====================
   
-  // Dashboard Stats
   async getAdminStats() {
     return this.request('/admin/stats');
   }

@@ -44,6 +44,10 @@ const LoginPage = () => {
         const response = await login(formData);
         console.log('Login response:', response);
         
+        // The token is already set in api.login, but let's verify
+        const token = localStorage.getItem('token');
+        console.log('Token after login:', token ? 'Present' : 'Missing');
+        
         const userRole = response.data.user?.role;
         
         if (userRole === 'super_admin') {

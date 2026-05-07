@@ -23,34 +23,44 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuth = async () => {
     const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        api.setToken(token);
-        const response = await api.getCurrentUser();
-        setUser(response.data.user);
-        if (response.data.user?.role) {
-          localStorage.setItem('userRole', response.data.user.role);
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        api.setToken(null);
-        localStorage.removeItem('token');
-        localStorage.removeItem('userRole');
-      }
+    console.log('🔍 Checking auth, token exists:', !!token);
+    
+    if (!token) {
+      console.log('ℹ️ No token found, skipping auth check');
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+    
+    try {
+      const response = await api.getCurrentUser();
+      console.log('✅ Auth check successful:', response.data.user);
+      setUser(response.data.user);
+      if (response.data.user?.role) {
+        localStorage.setItem('userRole', response.data.user.role);
+      }
+    } catch (error) {
+      console.error('❌ Auth check failed:', error);
+      // Clear invalid token
+      localStorage.removeItem('token');
+      localStorage.removeItem('userRole');
+      api.setToken(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const register = async (userData) => {
     setError(null);
     try {
       const response = await api.register(userData);
+      console.log('✅ Registration successful:', response.data.user);
       setUser(response.data.user);
       if (response.data.user?.role) {
         localStorage.setItem('userRole', response.data.user.role);
       }
       return response;
     } catch (error) {
+      console.error('❌ Registration error:', error);
       setError(error.message);
       throw error;
     }
@@ -59,13 +69,21 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     setError(null);
     try {
+      console.log('🔐 Attempting login for:', credentials.email);
       const response = await api.login(credentials);
+      console.log('✅ Login successful:', response.data.user);
+      
       setUser(response.data.user);
+      
       if (response.data.user?.role) {
         localStorage.setItem('userRole', response.data.user.role);
       }
+      
+      console.log('🔑 Token stored:', !!localStorage.getItem('token'));
+      
       return response;
     } catch (error) {
+      console.error('❌ Login error:', error);
       setError(error.message);
       throw error;
     }
@@ -74,11 +92,11 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await api.logout();
+      console.log('✅ Logout successful');
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('❌ Logout error:', error);
     } finally {
       setUser(null);
-      api.setToken(null);
       localStorage.removeItem('token');
       localStorage.removeItem('userRole');
     }
