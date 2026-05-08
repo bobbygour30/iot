@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// src/components/DownloadReports.jsx
+import React, { useState, useEffect } from 'react';
 import { 
   FaDownload, 
   FaCalendarAlt, 
@@ -8,8 +9,6 @@ import {
   FaFileCsv,
   FaChartLine,
   FaChartBar,
-  FaChartPie,
-  FaTable,
   FaClock,
   FaCheckCircle,
   FaSpinner,
@@ -25,87 +24,55 @@ import {
   FaLeaf,
   FaVolumeUp,
   FaEye as FaEyeIcon,
-  FaHeartbeat
+  FaHeartbeat,
+  FaTint,
+  FaFlask,
+  FaExclamationTriangle
 } from 'react-icons/fa';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import api from '../services/api';
 
 const DownloadReports = () => {
+  // Report generation states
   const [selectedReportType, setSelectedReportType] = useState('daily');
   const [selectedFormat, setSelectedFormat] = useState('pdf');
-  const [startDate, setStartDate] = useState('2024-03-01');
-  const [endDate, setEndDate] = useState('2024-03-15');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [selectedZone, setSelectedZone] = useState('all');
   const [selectedPlant, setSelectedPlant] = useState('all');
   const [isGenerating, setIsGenerating] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReport, setSelectedReport] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [selectedIndices, setSelectedIndices] = useState(['thermal', 'aqi', 'acoustic', 'visual', 'hpi']);
-
-  // Sample reports data - using reports state instead of generatedReports
-  const sampleReports = [
-    {
-      id: 1,
-      name: 'Daily Performance Report',
-      type: 'daily',
-      format: 'pdf',
-      date: '2024-03-15',
-      size: '2.4 MB',
-      status: 'completed',
-      zones: ['Zone A', 'Zone B', 'Zone C', 'Zone D'],
-      generatedBy: 'System',
-      generatedAt: '2024-03-15 08:00:00'
-    },
-    {
-      id: 2,
-      name: 'Weekly Indices Summary',
-      type: 'weekly',
-      format: 'excel',
-      date: '2024-03-10',
-      size: '4.2 MB',
-      status: 'completed',
-      zones: ['Zone A', 'Zone B'],
-      generatedBy: 'Admin',
-      generatedAt: '2024-03-10 09:30:00'
-    },
-    {
-      id: 3,
-      name: 'Monthly Equipment Report',
-      type: 'monthly',
-      format: 'csv',
-      date: '2024-03-01',
-      size: '1.8 MB',
-      status: 'completed',
-      zones: ['Zone C', 'Zone D'],
-      generatedBy: 'System',
-      generatedAt: '2024-03-01 10:15:00'
-    },
-    {
-      id: 4,
-      name: 'Zone A Thermal Analysis',
-      type: 'custom',
-      format: 'pdf',
-      date: '2024-03-14',
-      size: '3.1 MB',
-      status: 'completed',
-      zones: ['Zone A'],
-      generatedBy: 'Manager',
-      generatedAt: '2024-03-14 14:20:00'
-    },
-    {
-      id: 5,
-      name: 'AQI Trend Report',
-      type: 'weekly',
-      format: 'pdf',
-      date: '2024-03-08',
-      size: '2.9 MB',
-      status: 'completed',
-      zones: ['Zone B', 'Zone C'],
-      generatedBy: 'System',
-      generatedAt: '2024-03-08 11:45:00'
-    }
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Data states
+  const [sensorData, setSensorData] = useState([]);
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // Filter states
+  const [selectedIndices, setSelectedIndices] = useState(['temperature', 'humidity', 'voc']);
+  const [selectedDevice, setSelectedDevice] = useState('');
+  const [devicesList, setDevicesList] = useState([]);
+  
+  // Dynamic filter data
+  const [plantsList, setPlantsList] = useState([]);
+  const [zonesList, setZonesList] = useState([]);
+  const [statesList, setStatesList] = useState([]);
+  const [citiesList, setCitiesList] = useState([]);
+  const [selectedState, setSelectedState] = useState('');
+  const [selectedCity, setSelectedCity] = useState('');
+  
+  // Parameter definitions
+  const parameters = [
+    { id: 'temperature', name: 'Temperature', icon: <FaThermometerHalf />, color: 'orange', dataKey: 'temperature', unit: '°C' },
+    { id: 'humidity', name: 'Humidity', icon: <FaTint />, color: 'blue', dataKey: 'humidity', unit: '%' },
+    { id: 'voc', name: 'TVOC', icon: <FaFlask />, color: 'green', dataKey: 'voc', unit: 'ppb' }
   ];
-
-  const [reports, setReports] = useState(sampleReports);
 
   const reportTypes = [
     { id: 'daily', name: 'Daily Report', icon: <FaClock />, description: '24-hour performance summary' },
@@ -120,62 +87,439 @@ const DownloadReports = () => {
     { id: 'csv', name: 'CSV', icon: <FaFileCsv />, color: 'text-blue-500' }
   ];
 
-  const zones = ['all', 'Zone A', 'Zone B', 'Zone C', 'Zone D'];
-  const plants = ['all', 'Plant 1', 'Plant 2', 'Plant 3'];
-
-  const indices = [
-    { id: 'thermal', name: 'Thermal', icon: <FaThermometerHalf />, color: 'orange' },
-    { id: 'aqi', name: 'AQI', icon: <FaLeaf />, color: 'green' },
-    { id: 'acoustic', name: 'Acoustic', icon: <FaVolumeUp />, color: 'blue' },
-    { id: 'visual', name: 'Visual', icon: <FaEyeIcon />, color: 'purple' },
-    { id: 'hpi', name: 'HPI', icon: <FaHeartbeat />, color: 'pink' }
-  ];
-
-  const handleIndexToggle = (indexId) => {
-    if (selectedIndices.includes(indexId)) {
-      setSelectedIndices(selectedIndices.filter(i => i !== indexId));
-    } else {
-      setSelectedIndices([...selectedIndices, indexId]);
+  // Fetch sensor data from API
+  const fetchSensorData = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('https://sensor-six-iota.vercel.app/api/sensors');
+      if (!response.ok) throw new Error('Failed to fetch sensor data');
+      const data = await response.json();
+      
+      const mappedData = data.map(item => ({
+        ...item,
+        humidity: item.relative_humidity,
+        voc: item.tvoc,
+        device_id: item.device_id,
+        created_at: item.created_at,
+        timestamp: new Date(item.created_at)
+      }));
+      
+      setSensorData(mappedData);
+      
+      // Extract unique devices
+      const uniqueDevices = [...new Set(mappedData.map(item => item.device_id))];
+      setDevicesList(uniqueDevices);
+      
+      // Set default date range based on available data
+      if (mappedData.length > 0 && !startDate && !endDate) {
+        const dates = mappedData.map(d => new Date(d.created_at));
+        const minDate = new Date(Math.min(...dates));
+        const maxDate = new Date(Math.max(...dates));
+        setStartDate(minDate.toISOString().split('T')[0]);
+        setEndDate(maxDate.toISOString().split('T')[0]);
+      }
+      
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching sensor data:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleGenerateReport = () => {
+  // Fetch plants and zones for filters
+  const fetchFilterData = async () => {
+    try {
+      const plantsResponse = await api.getPlants();
+      let plantsData = [];
+      if (plantsResponse.data && Array.isArray(plantsResponse.data)) {
+        plantsData = plantsResponse.data;
+      } else if (Array.isArray(plantsResponse)) {
+        plantsData = plantsResponse;
+      }
+      
+      setPlantsList(plantsData);
+      
+      // Extract states and cities
+      const states = new Set();
+      const cities = new Set();
+      plantsData.forEach(plant => {
+        if (plant.state) states.add(plant.state);
+        if (plant.city) cities.add(plant.city);
+      });
+      setStatesList(Array.from(states));
+      setCitiesList(Array.from(cities));
+      
+      // Fetch zones
+      const allZones = [];
+      for (const plant of plantsData) {
+        try {
+          const zonesResponse = await api.getZonesByPlant(plant._id);
+          let zonesData = [];
+          if (zonesResponse.data && Array.isArray(zonesResponse.data)) {
+            zonesData = zonesResponse.data;
+          } else if (Array.isArray(zonesResponse)) {
+            zonesData = zonesResponse;
+          }
+          allZones.push(...zonesData);
+        } catch (err) {
+          console.error(`Error fetching zones for plant ${plant.name}:`, err);
+        }
+      }
+      setZonesList(allZones);
+      
+    } catch (err) {
+      console.error('Error fetching filter data:', err);
+    }
+  };
+
+  // Load saved reports from localStorage
+  const loadSavedReports = () => {
+    const saved = localStorage.getItem('generated_reports');
+    if (saved) {
+      try {
+        setReports(JSON.parse(saved));
+      } catch (err) {
+        console.error('Error loading saved reports:', err);
+      }
+    }
+  };
+
+  // Save reports to localStorage
+  const saveReports = (reportsData) => {
+    localStorage.setItem('generated_reports', JSON.stringify(reportsData));
+  };
+
+  useEffect(() => {
+    fetchSensorData();
+    fetchFilterData();
+    loadSavedReports();
+  }, []);
+
+  // Get filtered data based on all filters
+  const getFilteredData = () => {
+    let filtered = [...sensorData];
+    
+    // Filter by device
+    if (selectedDevice) {
+      filtered = filtered.filter(item => item.device_id === selectedDevice);
+    }
+    
+    // Filter by date range
+    if (startDate) {
+      filtered = filtered.filter(item => new Date(item.created_at) >= new Date(startDate));
+    }
+    if (endDate) {
+      const endDateTime = new Date(endDate);
+      endDateTime.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(item => new Date(item.created_at) <= endDateTime);
+    }
+    
+    // Filter by zone (if zones have device mappings)
+    if (selectedZone !== 'all' && selectedZone) {
+      // This would need proper mapping from zones to devices
+      // For now, we'll keep all data if no direct mapping
+    }
+    
+    // Filter by plant (if plants have device mappings)
+    if (selectedPlant !== 'all' && selectedPlant) {
+      // This would need proper mapping from plants to devices
+    }
+    
+    // Filter by state
+    if (selectedState) {
+      // This would need proper mapping
+    }
+    
+    // Filter by city
+    if (selectedCity) {
+      // This would need proper mapping
+    }
+    
+    return filtered;
+  };
+
+  // Generate report data based on filters
+  const generateReportData = () => {
+    const filteredData = getFilteredData();
+    
+    if (filteredData.length === 0) {
+      throw new Error('No data available for the selected filters');
+    }
+    
+    // Sort by timestamp
+    const sortedData = [...filteredData].sort((a, b) => 
+      new Date(a.created_at) - new Date(b.created_at)
+    );
+    
+    // Calculate statistics for each selected parameter
+    const statistics = {};
+    selectedIndices.forEach(paramId => {
+      const param = parameters.find(p => p.id === paramId);
+      if (param) {
+        const values = sortedData.map(d => d[param.dataKey]).filter(v => v !== undefined && v !== null);
+        if (values.length > 0) {
+          statistics[paramId] = {
+            min: Math.min(...values),
+            max: Math.max(...values),
+            avg: (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2),
+            current: values[values.length - 1],
+            count: values.length
+          };
+        }
+      }
+    });
+    
+    // Group data by date for trend analysis
+    const dataByDate = {};
+    sortedData.forEach(item => {
+      const date = new Date(item.created_at).toISOString().split('T')[0];
+      if (!dataByDate[date]) {
+        dataByDate[date] = [];
+      }
+      dataByDate[date].push(item);
+    });
+    
+    // Calculate daily averages
+    const dailyAverages = Object.keys(dataByDate).map(date => {
+      const dayData = dataByDate[date];
+      const dailyStats = {};
+      selectedIndices.forEach(paramId => {
+        const param = parameters.find(p => p.id === paramId);
+        if (param) {
+          const values = dayData.map(d => d[param.dataKey]).filter(v => v !== undefined && v !== null);
+          if (values.length > 0) {
+            dailyStats[paramId] = (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2);
+          }
+        }
+      });
+      return { date, ...dailyStats };
+    });
+    
+    return {
+      metadata: {
+        reportType: selectedReportType,
+        dateRange: { start: startDate, end: endDate },
+        generatedAt: new Date().toISOString(),
+        totalRecords: sortedData.length,
+        devices: [...new Set(sortedData.map(d => d.device_id))],
+        selectedParameters: selectedIndices,
+        filters: {
+          device: selectedDevice || 'All',
+          zone: selectedZone === 'all' ? 'All' : selectedZone,
+          plant: selectedPlant === 'all' ? 'All' : selectedPlant,
+          state: selectedState || 'All',
+          city: selectedCity || 'All'
+        }
+      },
+      statistics,
+      dailyAverages,
+      rawData: sortedData
+    };
+  };
+
+  // Generate PDF report
+  const generatePDF = async (reportData, reportName) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Title
+    doc.setFontSize(20);
+    doc.setTextColor(147, 51, 234);
+    doc.text(reportName, pageWidth / 2, 20, { align: 'center' });
+    
+    // Metadata
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Generated: ${new Date(reportData.metadata.generatedAt).toLocaleString()}`, 14, 35);
+    doc.text(`Report Type: ${reportData.metadata.reportType.toUpperCase()}`, 14, 42);
+    doc.text(`Date Range: ${reportData.metadata.dateRange.start} to ${reportData.metadata.dateRange.end}`, 14, 49);
+    doc.text(`Total Records: ${reportData.metadata.totalRecords}`, 14, 56);
+    doc.text(`Devices: ${reportData.metadata.devices.join(', ')}`, 14, 63);
+    
+    // Statistics Table
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Parameter Statistics', 14, 78);
+    
+    const statsData = selectedIndices.map(paramId => {
+      const param = parameters.find(p => p.id === paramId);
+      const stats = reportData.statistics[paramId];
+      return [
+        param.name,
+        stats ? `${stats.current}${param.unit}` : 'N/A',
+        stats ? `${stats.avg}${param.unit}` : 'N/A',
+        stats ? `${stats.min}${param.unit}` : 'N/A',
+        stats ? `${stats.max}${param.unit}` : 'N/A'
+      ];
+    });
+    
+    autoTable(doc, {
+      startY: 85,
+      head: [['Parameter', 'Current', 'Average', 'Min', 'Max']],
+      body: statsData,
+      theme: 'striped',
+      headStyles: { fillColor: [147, 51, 234], textColor: 255 },
+      margin: { left: 14, right: 14 }
+    });
+    
+    // Daily Averages
+    let finalY = doc.lastAutoTable
+  ? doc.lastAutoTable.finalY + 10
+  : 120;
+    doc.text('Daily Averages', 14, finalY);
+    
+    const dailyData = reportData.dailyAverages.map(day => {
+      const row = [day.date];
+      selectedIndices.forEach(paramId => {
+        const param = parameters.find(p => p.id === paramId);
+        row.push(day[paramId] ? `${day[paramId]}${param.unit}` : 'N/A');
+      });
+      return row;
+    });
+    
+    autoTable(doc, {
+      startY: finalY + 5,
+      head: [['Date', ...selectedIndices.map(id => parameters.find(p => p.id === id)?.name)]],
+      body: dailyData,
+      theme: 'striped',
+      headStyles: { fillColor: [147, 51, 234], textColor: 255 },
+      margin: { left: 14, right: 14 }
+    });
+    
+    return doc;
+  };
+
+  // Generate Excel/CSV data
+  const generateExcelData = (reportData) => {
+    const exportData = reportData.rawData.map(item => ({
+      'Device ID': item.device_id,
+      'Temperature (°C)': item.temperature,
+      'Humidity (%)': item.humidity,
+      'VOC (ppb)': item.voc,
+      'Timestamp': new Date(item.created_at).toLocaleString()
+    }));
+    return exportData;
+  };
+
+  const handleGenerateReport = async () => {
+    if (!startDate || !endDate) {
+      alert('Please select both start and end dates');
+      return;
+    }
+    
     setIsGenerating(true);
     
-    // Simulate report generation
-    setTimeout(() => {
+    try {
+      const reportData = generateReportData();
+      const reportName = `${reportTypes.find(r => r.id === selectedReportType)?.name} - ${new Date().toLocaleDateString()}`;
+      
+      let blob;
+      let fileExtension;
+      let mimeType;
+      
+      if (selectedFormat === 'pdf') {
+        const doc = await generatePDF(reportData, reportName);
+        blob = doc.output('blob');
+        fileExtension = 'pdf';
+        mimeType = 'application/pdf';
+      } else if (selectedFormat === 'excel') {
+        const exportData = generateExcelData(reportData);
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Report Data');
+        const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        fileExtension = 'xlsx';
+        mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      } else if (selectedFormat === 'csv') {
+        const exportData = generateExcelData(reportData);
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const csvContent = XLSX.utils.sheet_to_csv(ws);
+        blob = new Blob([csvContent], { type: 'text/csv' });
+        fileExtension = 'csv';
+        mimeType = 'text/csv';
+      }
+      
+      // Save report metadata
       const newReport = {
-        id: reports.length + 1,
-        name: `${reportTypes.find(r => r.id === selectedReportType)?.name} - ${new Date().toLocaleDateString()}`,
+        id: Date.now(),
+        name: reportName,
         type: selectedReportType,
         format: selectedFormat,
         date: new Date().toISOString().split('T')[0],
-        size: `${(Math.random() * 5 + 1).toFixed(1)} MB`,
+        size: `${(blob.size / (1024 * 1024)).toFixed(2)} MB`,
         status: 'completed',
-        zones: selectedZone === 'all' ? ['Zone A', 'Zone B', 'Zone C', 'Zone D'] : [selectedZone],
-        generatedBy: 'John Doe',
-        generatedAt: new Date().toLocaleString()
+        zones: selectedZone === 'all' ? ['All Zones'] : [selectedZone],
+        generatedBy: 'System',
+        generatedAt: new Date().toLocaleString(),
+        data: reportData,
+        blob: URL.createObjectURL(blob)
       };
       
-      setReports([newReport, ...reports]);
-      setIsGenerating(false);
+      const updatedReports = [newReport, ...reports];
+      setReports(updatedReports);
+      saveReports(updatedReports);
+      
       alert('Report generated successfully!');
-    }, 2000);
+      
+      // Auto-download if settings allow
+      const link = document.createElement('a');
+      link.href = newReport.blob;
+      link.download = `${reportName.replace(/\s/g, '_')}.${fileExtension}`;
+      link.click();
+      
+    } catch (err) {
+      console.error('Error generating report:', err);
+      alert(`Error generating report: ${err.message}`);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleDownload = (report) => {
-    alert(`Downloading ${report.name} as ${report.format.toUpperCase()} file...`);
+    if (report.blob) {
+      const link = document.createElement('a');
+      link.href = report.blob;
+      link.download = `${report.name.replace(/\s/g, '_')}.${report.format}`;
+      link.click();
+    } else {
+      alert('Report file not found. Please regenerate the report.');
+    }
   };
 
   const handleDelete = (id) => {
     if (window.confirm('Are you sure you want to delete this report?')) {
-      setReports(reports.filter(r => r.id !== id));
+      const reportToDelete = reports.find(r => r.id === id);
+      if (reportToDelete?.blob) {
+        URL.revokeObjectURL(reportToDelete.blob);
+      }
+      const updatedReports = reports.filter(r => r.id !== id);
+      setReports(updatedReports);
+      saveReports(updatedReports);
     }
   };
 
   const handlePreview = (report) => {
     setSelectedReport(report);
     setShowPreview(true);
+  };
+
+  const handleResetFilters = () => {
+    setSelectedDevice('');
+    setSelectedZone('all');
+    setSelectedPlant('all');
+    setSelectedState('');
+    setSelectedCity('');
+    setSelectedIndices(['temperature', 'humidity', 'voc']);
+    if (sensorData.length > 0) {
+      const dates = sensorData.map(d => new Date(d.created_at));
+      const minDate = new Date(Math.min(...dates));
+      const maxDate = new Date(Math.max(...dates));
+      setStartDate(minDate.toISOString().split('T')[0]);
+      setEndDate(maxDate.toISOString().split('T')[0]);
+    }
   };
 
   const filteredReports = reports.filter(report => 
@@ -194,20 +538,115 @@ const DownloadReports = () => {
     return f ? f.color : 'text-gray-500';
   };
 
+  if (loading && !sensorData.length) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <FaSpinner className="animate-spin text-5xl text-purple-500 mx-auto mb-4" />
+          <p className="text-gray-600">Loading sensor data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const filteredDataCount = getFilteredData().length;
+
   return (
-    <div className="p-4 sm:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Download Reports</h1>
-          <p className="text-gray-500 mt-1">Generate and download detailed analytics reports</p>
+          <p className="text-gray-500 mt-1">Generate and download detailed analytics reports from live sensor data</p>
+          <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+            <span><FaDatabase className="inline mr-1" /> {sensorData.length} total readings</span>
+            <span>• {filteredDataCount} filtered readings</span>
+            <span>• {reports.length} saved reports</span>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button className="px-3 py-2 bg-white border border-gray-200 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-all">
-            <FaDatabase /> <span className="hidden sm:inline">Data Sources</span>
+        <button 
+          onClick={() => setShowFilters(!showFilters)} 
+          className="px-3 py-2 bg-white border border-gray-200 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-all"
+        >
+          <FaFilter /> {showFilters ? 'Hide Filters' : 'Show Filters'}
+        </button>
+      </div>
+
+      {/* Advanced Filters Section */}
+      {showFilters && (
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 mb-6">
+          <h3 className="font-semibold text-gray-800 mb-3">Data Filters</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Device</label>
+              <select
+                value={selectedDevice}
+                onChange={(e) => setSelectedDevice(e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+              >
+                <option value="">All Devices</option>
+                {devicesList.map(device => (
+                  <option key={device} value={device}>{device}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Zone</label>
+              <select
+                value={selectedZone}
+                onChange={(e) => setSelectedZone(e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+              >
+                <option value="all">All Zones</option>
+                {zonesList.map(zone => (
+                  <option key={zone._id} value={zone.name}>{zone.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Plant</label>
+              <select
+                value={selectedPlant}
+                onChange={(e) => setSelectedPlant(e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+              >
+                <option value="all">All Plants</option>
+                {plantsList.map(plant => (
+                  <option key={plant._id} value={plant.name}>{plant.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">State</label>
+              <select
+                value={selectedState}
+                onChange={(e) => setSelectedState(e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+              >
+                <option value="">All States</option>
+                {statesList.map(state => <option key={state}>{state}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">City</label>
+              <select
+                value={selectedCity}
+                onChange={(e) => setSelectedCity(e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+              >
+                <option value="">All Cities</option>
+                {citiesList.map(city => <option key={city}>{city}</option>)}
+              </select>
+            </div>
+          </div>
+          <button
+            onClick={handleResetFilters}
+            className="mt-3 px-3 py-1.5 text-sm text-purple-600 hover:text-purple-700 font-medium border border-purple-200 rounded-lg hover:bg-purple-50 transition-all"
+          >
+            Reset All Filters
           </button>
         </div>
-      </div>
+      )}
 
       {/* Report Generator Card */}
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6 mb-6">
@@ -273,67 +712,39 @@ const DownloadReports = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {/* Zone Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Zone</label>
-            <select
-              value={selectedZone}
-              onChange={(e) => setSelectedZone(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
-            >
-              {zones.map(zone => (
-                <option key={zone} value={zone}>
-                  {zone === 'all' ? 'All Zones' : zone}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Plant Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Plant</label>
-            <select
-              value={selectedPlant}
-              onChange={(e) => setSelectedPlant(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
-            >
-              {plants.map(plant => (
-                <option key={plant} value={plant}>
-                  {plant === 'all' ? 'All Plants' : plant}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Indices Selection - Using selectedIndices */}
+        {/* Indices Selection */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Include Indices</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Include Parameters</label>
           <div className="flex flex-wrap gap-2">
-            {indices.map(index => (
-              <label key={index.id} className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
+            {parameters.map(param => (
+              <label key={param.id} className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
                 <input 
                   type="checkbox" 
-                  checked={selectedIndices.includes(index.id)}
-                  onChange={() => handleIndexToggle(index.id)}
+                  checked={selectedIndices.includes(param.id)}
+                  onChange={() => {
+                    if (selectedIndices.includes(param.id)) {
+                      setSelectedIndices(selectedIndices.filter(i => i !== param.id));
+                    } else {
+                      setSelectedIndices([...selectedIndices, param.id]);
+                    }
+                  }}
                   className="rounded text-purple-500" 
                 />
-                <span className={`text-${index.color}-500`}>{index.icon}</span>
-                <span className="text-sm text-gray-700">{index.name}</span>
+                <span className={`text-${param.color}-500`}>{param.icon}</span>
+                <span className="text-sm text-gray-700">{param.name}</span>
               </label>
             ))}
           </div>
           <p className="text-xs text-gray-500 mt-2">
-            Selected: {selectedIndices.length} indices
+            Selected: {selectedIndices.length} parameters
           </p>
         </div>
 
         {/* Generate Button */}
         <button
           onClick={handleGenerateReport}
-          disabled={isGenerating}
-          className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-70"
+          disabled={isGenerating || filteredDataCount === 0}
+          className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isGenerating ? (
             <>
@@ -343,10 +754,16 @@ const DownloadReports = () => {
           ) : (
             <>
               <FaDownload />
-              Generate Report
+              Generate Report ({filteredDataCount} records)
             </>
           )}
         </button>
+        
+        {filteredDataCount === 0 && !loading && (
+          <p className="text-xs text-red-500 text-center mt-2">
+            No data available for selected filters. Please adjust your filters.
+          </p>
+        )}
       </div>
 
       {/* Report Type Info Cards */}
@@ -364,22 +781,17 @@ const DownloadReports = () => {
         ))}
       </div>
 
-      {/* Search and Filter Bar */}
+      {/* Search Bar */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
-            <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search reports by name, type, or zone..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
-            />
-          </div>
-          <button className="px-4 py-2 bg-gray-100 rounded-lg flex items-center gap-2 hover:bg-gray-200 transition-all">
-            <FaFilter /> Filter
-          </button>
+        <div className="relative">
+          <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search reports by name, type, or zone..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+          />
         </div>
       </div>
 
@@ -523,18 +935,32 @@ const DownloadReports = () => {
                   </div>
                 </div>
                 
-                <div className="bg-gray-50 rounded-xl p-4 mb-6">
-                  <h4 className="font-semibold text-gray-700 mb-2">Summary</h4>
-                  <p className="text-sm text-gray-600">
-                    This report contains comprehensive data analysis for the specified period. 
-                    Includes performance metrics, zone-wise distribution, trend analysis, 
-                    and actionable recommendations.
-                  </p>
-                </div>
+                {selectedReport.data && (
+                  <div className="bg-gray-50 rounded-xl p-4 mb-6">
+                    <h4 className="font-semibold text-gray-700 mb-2">Summary Statistics</h4>
+                    {selectedIndices.map(paramId => {
+                      const param = parameters.find(p => p.id === paramId);
+                      const stats = selectedReport.data.statistics?.[paramId];
+                      return stats && (
+                        <div key={paramId} className="text-sm text-gray-600 mb-2">
+                          <span className="font-medium">{param?.name}:</span> Current: {stats.current}{param?.unit}, 
+                          Avg: {stats.avg}{param?.unit}, 
+                          Range: {stats.min}{param?.unit} - {stats.max}{param?.unit}
+                        </div>
+                      );
+                    })}
+                    <p className="text-sm text-gray-600 mt-2">
+                      Total Records: {selectedReport.data.metadata?.totalRecords || 0}
+                    </p>
+                  </div>
+                )}
                 
                 <div className="flex gap-3">
                   <button
-                    onClick={() => handleDownload(selectedReport)}
+                    onClick={() => {
+                      handleDownload(selectedReport);
+                      setShowPreview(false);
+                    }}
                     className="flex-1 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg flex items-center justify-center gap-2 hover:shadow-lg"
                   >
                     <FaDownload /> Download
@@ -549,6 +975,14 @@ const DownloadReports = () => {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Error Display */}
+      {error && (
+        <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+          <FaExclamationTriangle />
+          {error}
         </div>
       )}
     </div>
