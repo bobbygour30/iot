@@ -1,3 +1,4 @@
+// src/pages/Dashboard.jsx - Complete fixed version
 import React, { useState, useEffect } from 'react';
 import { 
   FaFileDownload, 
@@ -24,16 +25,13 @@ import {
   FaCompress,
   FaFilter,
   FaTint,
-  FaFlask,
-  FaWind,
-  FaMoon,
-  FaFire,
-  FaSmog
+  FaFlask
 } from 'react-icons/fa';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import * as XLSX from 'xlsx';
+import api from '../services/api';
 
 const Dashboard = () => {
   // Filter states
@@ -53,33 +51,20 @@ const Dashboard = () => {
   const [devices, setDevices] = useState([]);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   
+  // Dynamic filter data
+  const [plantsList, setPlantsList] = useState([]);
+  const [zonesList, setZonesList] = useState([]);
+  const [statesList, setStatesList] = useState([]);
+  const [citiesByStateMap, setCitiesByStateMap] = useState({});
+  
   // Multi-select parameters
   const parameters = [
     { id: 'temperature', name: 'Temperature', icon: <FaThermometerHalf />, color: 'orange', dataKey: 'temperature', unit: '°C', comingSoon: false },
     { id: 'humidity', name: 'Relative Humidity', icon: <FaTint />, color: 'blue', dataKey: 'humidity', unit: '%', comingSoon: false },
-    { id: 'voc', name: 'TVOC', icon: <FaFlask />, color: 'green', dataKey: 'voc', unit: 'ppb', comingSoon: false },
-    { id: 'airVelocity', name: 'Air Velocity', icon: <FaWind />, color: 'cyan', dataKey: 'airVelocity', unit: 'm/s', comingSoon: true },
-    { id: 'pm', name: 'PM - 2.5/10', icon: <FaSmog />, color: 'red', dataKey: 'pm', unit: 'µg/m³', comingSoon: true },
-    { id: 'co2', name: 'CO2', icon: <FaFire />, color: 'purple', dataKey: 'co2', unit: 'ppm', comingSoon: true },
-    { id: 'lux', name: 'LUX', icon: <FaMoon />, color: 'yellow', dataKey: 'lux', unit: 'lx', comingSoon: true },
-    { id: 'noise', name: 'Noise (AV/PEAK)', icon: <FaVolumeUp />, color: 'pink', dataKey: 'noise', unit: 'dB', comingSoon: true }
+    { id: 'voc', name: 'TVOC', icon: <FaFlask />, color: 'green', dataKey: 'voc', unit: 'ppb', comingSoon: false }
   ];
 
   const [selectedParameters, setSelectedParameters] = useState(['temperature', 'humidity', 'voc']);
-
-  // Data for filters
-  const states = ['Maharashtra', 'Gujarat', 'Karnataka', 'Tamil Nadu', 'Delhi', 'West Bengal', 'Telangana'];
-  const citiesByState = {
-    'Maharashtra': ['Mumbai', 'Pune', 'Nagpur', 'Nashik', 'Thane'],
-    'Gujarat': ['Ahmedabad', 'Surat', 'Vadodara', 'Rajkot', 'Bhavnagar'],
-    'Karnataka': ['Bengaluru', 'Mysore', 'Hubli', 'Mangalore', 'Belgaum'],
-    'Tamil Nadu': ['Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli', 'Salem'],
-    'Delhi': ['New Delhi', 'Noida', 'Gurugram', 'Faridabad', 'Ghaziabad'],
-    'West Bengal': ['Kolkata', 'Howrah', 'Durgapur', 'Siliguri', 'Asansol'],
-    'Telangana': ['Hyderabad', 'Secunderabad', 'Warangal', 'Nizamabad', 'Karimnagar']
-  };
-  const plants = ['Plant A', 'Plant B', 'Plant C', 'Plant D', 'Plant E', 'Plant F'];
-  const zones = ['Zone 1', 'Zone 2', 'Zone 3', 'Zone 4', 'Zone 5', 'Zone 6'];
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -87,6 +72,72 @@ const Dashboard = () => {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Fetch dynamic data (plants and zones)
+  const fetchDynamicData = async () => {
+    try {
+      // Fetch plants
+      const plantsResponse = await api.getPlants();
+      let plantsData = [];
+      if (plantsResponse.data && Array.isArray(plantsResponse.data)) {
+        plantsData = plantsResponse.data;
+      } else if (Array.isArray(plantsResponse)) {
+        plantsData = plantsResponse;
+      }
+      
+      console.log('Plants fetched:', plantsData.length);
+      setPlantsList(plantsData);
+      
+      // Extract unique states and cities from plants
+      const states = new Set();
+      const citiesByState = {};
+      
+      plantsData.forEach(plant => {
+        if (plant.state && plant.state.trim()) {
+          states.add(plant.state);
+          if (!citiesByState[plant.state]) {
+            citiesByState[plant.state] = new Set();
+          }
+          if (plant.city && plant.city.trim()) {
+            citiesByState[plant.state].add(plant.city);
+          }
+        }
+      });
+      
+      setStatesList(Array.from(states));
+      
+      const citiesMap = {};
+      Object.keys(citiesByState).forEach(state => {
+        citiesMap[state] = Array.from(citiesByState[state]);
+      });
+      setCitiesByStateMap(citiesMap);
+      
+      // Fetch ALL zones for the user
+      const allZones = [];
+      for (const plant of plantsData) {
+        try {
+          const zonesResponse = await api.getZonesByPlant(plant._id);
+          let zonesData = [];
+          if (zonesResponse.data && Array.isArray(zonesResponse.data)) {
+            zonesData = zonesResponse.data;
+          } else if (Array.isArray(zonesResponse)) {
+            zonesData = zonesResponse;
+          }
+          
+          console.log(`Zones for plant ${plant.name}:`, zonesData.length);
+          allZones.push(...zonesData);
+        } catch (err) {
+          console.error(`Error fetching zones for plant ${plant.name}:`, err);
+        }
+      }
+      
+      console.log('All zones total:', allZones.length);
+      setZonesList(allZones);
+      
+    } catch (err) {
+      console.error('Error fetching dynamic data:', err);
+    }
+  };
 
   // Fetch sensor data
   const fetchSensorData = async () => {
@@ -128,6 +179,7 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
+    fetchDynamicData();
     fetchSensorData();
     const interval = setInterval(fetchSensorData, 30000);
     return () => clearInterval(interval);
@@ -168,7 +220,7 @@ const Dashboard = () => {
     const filteredData = getFilteredData();
     if (!filteredData.length) return null;
     const param = parameters.find(p => p.id === paramId);
-    if (!param || param.comingSoon) return null;
+    if (!param) return null;
     const latest = filteredData[filteredData.length - 1];
     return latest[param.dataKey];
   };
@@ -177,7 +229,7 @@ const Dashboard = () => {
     const filteredData = getFilteredData();
     if (!filteredData.length) return null;
     const param = parameters.find(p => p.id === paramId);
-    if (!param || param.comingSoon) return null;
+    if (!param) return null;
     const values = filteredData.map(d => d[param.dataKey]).filter(v => v !== undefined && v !== null);
     if (values.length === 0) return null;
     return (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
@@ -187,12 +239,7 @@ const Dashboard = () => {
     const colors = {
       orange: 'text-orange-500',
       blue: 'text-blue-500',
-      green: 'text-green-500',
-      cyan: 'text-cyan-500',
-      red: 'text-red-500',
-      purple: 'text-purple-500',
-      yellow: 'text-yellow-500',
-      pink: 'text-pink-500'
+      green: 'text-green-500'
     };
     return colors[color] || 'text-gray-500';
   };
@@ -385,7 +432,7 @@ const Dashboard = () => {
                     className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
                   >
                     <option value="">All States</option>
-                    {states.map(s => <option key={s}>{s}</option>)}
+                    {statesList.map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
@@ -397,7 +444,7 @@ const Dashboard = () => {
                     disabled={!selectedState}
                   >
                     <option value="">All Cities</option>
-                    {selectedState && citiesByState[selectedState]?.map(c => <option key={c}>{c}</option>)}
+                    {selectedState && citiesByStateMap[selectedState]?.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
@@ -408,7 +455,7 @@ const Dashboard = () => {
                     className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
                   >
                     <option value="">All Plants</option>
-                    {plants.map(p => <option key={p}>{p}</option>)}
+                    {plantsList.map(plant => <option key={plant._id} value={plant.name}>{plant.name}</option>)}
                   </select>
                 </div>
                 <div>
@@ -419,7 +466,11 @@ const Dashboard = () => {
                     className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
                   >
                     <option value="">All Zones</option>
-                    {zones.map(z => <option key={z}>{z}</option>)}
+                    {zonesList.map(zone => (
+                      <option key={zone._id} value={zone.name}>
+                        {zone.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -487,19 +538,13 @@ const Dashboard = () => {
                 checked={selectedParameters.includes(param.id)}
                 onChange={() => handleParameterToggle(param.id)}
                 className="rounded text-purple-500 focus:ring-purple-500 w-3.5 h-3.5" 
-                disabled={param.comingSoon}
               />
               <span className={getParameterColorClass(param.color)}>
                 {param.icon}
               </span>
-              <span className={`text-sm ${param.comingSoon ? 'text-gray-400' : 'text-gray-700'}`}>
+              <span className="text-sm text-gray-700">
                 {param.name}
               </span>
-              {param.comingSoon && (
-                <span className="text-xs bg-yellow-100 text-yellow-600 px-1.5 py-0.5 rounded-full ml-0.5">
-                  Soon
-                </span>
-              )}
             </label>
           ))}
         </div>
@@ -509,25 +554,9 @@ const Dashboard = () => {
       </div>
 
       {/* Current Values Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         {selectedParameters.map((paramId) => {
           const param = parameters.find(p => p.id === paramId);
-          if (param.comingSoon) {
-            return (
-              <div key={param.id} className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-gray-500 text-sm flex items-center gap-2">
-                    <span className={getParameterColorClass(param.color)}>{param.icon}</span>
-                    {param.name}
-                  </p>
-                  <span className="text-xs bg-yellow-100 text-yellow-600 px-2 py-0.5 rounded-full">Coming Soon</span>
-                </div>
-                <p className="text-2xl font-bold text-gray-400">--</p>
-                <p className="text-xs text-gray-400 mt-2">Data coming soon</p>
-              </div>
-            );
-          }
-          
           const currentValue = getParameterValue(paramId);
           const avgValue = getParameterAverage(paramId);
           const alertThreshold = paramId === 'temperature' ? 34 : paramId === 'voc' ? 35000 : 80;

@@ -5,7 +5,7 @@ import { AuthProvider } from './context/AuthContext';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import Dashboard from './pages/Dashboard';
-import CreateZone from './pages/CreateZone';
+// import CreateZone from './pages/CreateZone';
 import Reports from './pages/Reports';
 import ProtectedRoute from './components/ProtectedRoute';
 import UserLayout from './components/Layout/UserLayout';
@@ -45,7 +45,7 @@ const App = () => {
 <Route path="create-plant" element={<CreatePlant />} />
 <Route path="create-zone" element={<CreateZoneOnly />} />
 <Route path="add-device" element={<AddDevice />} />
-            <Route path="create-zone" element={<CreateZone />} />
+            {/* <Route path="create-zone" element={<CreateZone />} /> */}
             <Route path="reports" element={<Reports />} />
           </Route>
 

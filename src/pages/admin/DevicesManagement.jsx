@@ -16,22 +16,29 @@ import {
   FaExclamationTriangle,
   FaTimes,
   FaChartLine,
-  FaSpinner
+  FaSpinner,
+  FaSync,
+  FaLink
 } from 'react-icons/fa';
 import api from '../../services/api';
 
 const DevicesManagement = () => {
   const [devices, setDevices] = useState([]);
+  const [externalDevices, setExternalDevices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedZone, setSelectedZone] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState(null);
+  const [selectedExternalDevice, setSelectedExternalDevice] = useState(null);
   const [zones, setZones] = useState([]);
   const [plants, setPlants] = useState([]);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [newDevice, setNewDevice] = useState({
     deviceId: '', type: 'Multi-Sensor', model: '', location: '', plantId: '', zoneId: ''
   });
@@ -39,21 +46,50 @@ const DevicesManagement = () => {
   const deviceTypes = ['Multi-Sensor', 'Temperature Sensor', 'Humidity Sensor', 'VOC Sensor'];
 
   useEffect(() => {
-    fetchDevices();
-    fetchZones();
-    fetchPlants();
+    fetchAllData();
   }, []);
 
-  const fetchDevices = async () => {
+  const fetchAllData = async () => {
     setLoading(true);
+    await Promise.all([
+      fetchDevices(),
+      fetchExternalDevices(),
+      fetchZones(),
+      fetchPlants()
+    ]);
+    setLoading(false);
+  };
+
+  const fetchDevices = async () => {
     try {
       const response = await api.getAdminDevices();
       setDevices(response.data);
     } catch (err) {
       console.error('Error fetching devices:', err);
       setError(err.message);
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const fetchExternalDevices = async () => {
+    try {
+      const response = await fetch('https://sensor-six-iota.vercel.app/api/sensors');
+      if (!response.ok) throw new Error('Failed to fetch external devices');
+      const data = await response.json();
+      
+      // Group by device_id and get latest reading for each
+      const deviceMap = new Map();
+      data.forEach(reading => {
+        const existing = deviceMap.get(reading.device_id);
+        if (!existing || new Date(reading.created_at) > new Date(existing.created_at)) {
+          deviceMap.set(reading.device_id, reading);
+        }
+      });
+      
+      const uniqueDevices = Array.from(deviceMap.values());
+      setExternalDevices(uniqueDevices);
+    } catch (err) {
+      console.error('Error fetching external devices:', err);
+      setError('Failed to fetch external sensor data');
     }
   };
 
@@ -75,6 +111,118 @@ const DevicesManagement = () => {
     }
   };
 
+  const handleSyncExternalDevices = async () => {
+    setSyncing(true);
+    setSuccess('');
+    setError('');
+    
+    try {
+      const externalData = await fetch('https://sensor-six-iota.vercel.app/api/sensors');
+      const sensors = await externalData.json();
+      
+      // Group by device_id
+      const deviceMap = new Map();
+      sensors.forEach(reading => {
+        const existing = deviceMap.get(reading.device_id);
+        if (!existing || new Date(reading.created_at) > new Date(existing.created_at)) {
+          deviceMap.set(reading.device_id, reading);
+        }
+      });
+      
+      const uniqueDevices = Array.from(deviceMap.values());
+      setExternalDevices(uniqueDevices);
+      setSuccess(`Synced ${uniqueDevices.length} devices from external source`);
+      
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError('Failed to sync external devices');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleAssignDevice = async () => {
+    if (!selectedExternalDevice) return;
+    
+    try {
+      const deviceData = {
+        deviceId: selectedExternalDevice.device_id,
+        type: 'Multi-Sensor',
+        model: 'External Sensor',
+        location: '',
+        plantId: newDevice.plantId,
+        zoneId: newDevice.zoneId,
+        thresholds: {
+          temperature: 34,
+          humidity: 70,
+          voc: 35000
+        }
+      };
+      
+      const response = await api.registerAdminDevice(deviceData);
+      setDevices([response.data, ...devices]);
+      setShowAssignModal(false);
+      setSelectedExternalDevice(null);
+      setNewDevice({ deviceId: '', type: 'Multi-Sensor', model: '', location: '', plantId: '', zoneId: '' });
+      setSuccess(`Device ${selectedExternalDevice.device_id} assigned successfully!`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.message);
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  const handleAddDevice = async () => {
+    try {
+      const response = await api.registerAdminDevice(newDevice);
+      setDevices([response.data, ...devices]);
+      setShowAddModal(false);
+      setNewDevice({ deviceId: '', type: 'Multi-Sensor', model: '', location: '', plantId: '', zoneId: '' });
+      setError('');
+      setSuccess('Device registered successfully!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleUpdateDevice = async () => {
+    try {
+      const response = await api.updateAdminDevice(selectedDevice._id, selectedDevice);
+      setDevices(devices.map(d => d._id === selectedDevice._id ? response.data : d));
+      setShowEditModal(false);
+      setSelectedDevice(null);
+      setError('');
+      setSuccess('Device updated successfully!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleDeleteDevice = async (id) => {
+    if (window.confirm('Are you sure you want to delete this device?')) {
+      try {
+        await api.deleteAdminDevice(id);
+        setDevices(devices.filter(device => device._id !== id));
+        setSuccess('Device deleted successfully!');
+        setTimeout(() => setSuccess(''), 3000);
+      } catch (err) {
+        setError(err.message);
+      }
+    }
+  };
+
+  const handleUpdateStatus = async (id, newStatus) => {
+    try {
+      const response = await api.updateAdminDeviceStatus(id, newStatus);
+      setDevices(devices.map(device => device._id === id ? response.data : device));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const filteredDevices = devices.filter(device => {
     const matchesSearch = device.deviceId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          device.location?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -91,50 +239,6 @@ const DevicesManagement = () => {
     }
   };
 
-  const handleAddDevice = async () => {
-    try {
-      const response = await api.registerAdminDevice(newDevice);
-      setDevices([response.data, ...devices]);
-      setShowAddModal(false);
-      setNewDevice({ deviceId: '', type: 'Multi-Sensor', model: '', location: '', plantId: '', zoneId: '' });
-      setError('');
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleUpdateDevice = async () => {
-    try {
-      const response = await api.updateAdminDevice(selectedDevice._id, selectedDevice);
-      setDevices(devices.map(d => d._id === selectedDevice._id ? response.data : d));
-      setShowEditModal(false);
-      setSelectedDevice(null);
-      setError('');
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleDeleteDevice = async (id) => {
-    if (window.confirm('Are you sure you want to delete this device?')) {
-      try {
-        await api.deleteAdminDevice(id);
-        setDevices(devices.filter(device => device._id !== id));
-      } catch (err) {
-        setError(err.message);
-      }
-    }
-  };
-
-  const handleUpdateStatus = async (id, newStatus) => {
-    try {
-      const response = await api.updateAdminDeviceStatus(id, newStatus);
-      setDevices(devices.map(device => device._id === id ? response.data : device));
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -145,23 +249,88 @@ const DevicesManagement = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg relative">
+          {success}
+        </div>
+      )}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative">
+          {error}
+        </div>
+      )}
+
+      <div className="flex justify-between items-center flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Device Management</h1>
           <p className="text-gray-500 mt-1">Monitor and manage all IoT devices</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg flex items-center gap-2 hover:shadow-lg"
-        >
-          <FaPlus /> Register Device
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleSyncExternalDevices}
+            disabled={syncing}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg flex items-center gap-2 hover:bg-blue-600 transition-all"
+          >
+            <FaSync className={syncing ? "animate-spin" : ""} /> Sync External Devices
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg flex items-center gap-2 hover:shadow-lg"
+          >
+            <FaPlus /> Register Device
+          </button>
+        </div>
       </div>
+
+      {/* External Devices Section */}
+      {externalDevices.length > 0 && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <FaMicrochip className="text-blue-500" />
+              Available External Sensors ({externalDevices.length})
+            </h2>
+            <span className="text-xs text-gray-500">From sensor-six API</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {externalDevices.slice(0, 6).map((device) => (
+              <div key={device._id} className="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-mono font-semibold text-gray-800 text-sm">{device.device_id}</p>
+                    <div className="flex gap-3 mt-1 text-xs text-gray-500">
+                      <span>{device.temperature}°C</span>
+                      <span>{device.relative_humidity}%</span>
+                      <span>{device.tvoc} ppb</span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Last: {new Date(device.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSelectedExternalDevice(device);
+                      setShowAssignModal(true);
+                    }}
+                    className="px-2 py-1 bg-blue-100 text-blue-600 rounded text-xs flex items-center gap-1 hover:bg-blue-200"
+                  >
+                    <FaLink /> Assign
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {externalDevices.length > 6 && (
+            <p className="text-center text-xs text-gray-500 mt-2">+{externalDevices.length - 6} more devices</p>
+          )}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl p-4 shadow-sm">
-          <p className="text-gray-500 text-sm">Total Devices</p>
+          <p className="text-gray-500 text-sm">Total Registered Devices</p>
           <p className="text-2xl font-bold text-gray-800">{devices.length}</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm">
@@ -173,8 +342,8 @@ const DevicesManagement = () => {
           <p className="text-2xl font-bold text-red-600">{devices.filter(d => d.status === 'offline').length}</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm">
-          <p className="text-gray-500 text-sm">In Maintenance</p>
-          <p className="text-2xl font-bold text-orange-600">{devices.filter(d => d.status === 'maintenance').length}</p>
+          <p className="text-gray-500 text-sm">External Sensors Available</p>
+          <p className="text-2xl font-bold text-blue-600">{externalDevices.length}</p>
         </div>
       </div>
 
@@ -201,16 +370,19 @@ const DevicesManagement = () => {
             <option value="offline">Offline</option>
             <option value="maintenance">Maintenance</option>
           </select>
+          <button
+            onClick={fetchAllData}
+            className="px-4 py-2 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center gap-2 hover:bg-purple-200"
+          >
+            <FaSpinner className={loading ? "animate-spin" : ""} /> Refresh
+          </button>
           <button className="px-4 py-2 bg-gray-100 rounded-lg flex items-center justify-center gap-2 hover:bg-gray-200">
             Export Device List
-          </button>
-          <button onClick={fetchDevices} className="px-4 py-2 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center gap-2 hover:bg-purple-200">
-            <FaSpinner className={loading ? "animate-spin" : ""} /> Refresh
           </button>
         </div>
       </div>
 
-      {/* Devices Grid */}
+      {/* Registered Devices Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {filteredDevices.map((device) => {
           const statusBadge = getStatusBadge(device.status);
@@ -238,6 +410,7 @@ const DevicesManagement = () => {
                 <div className="space-y-2 text-sm">
                   <p className="text-gray-600">📍 {device.location || 'Not specified'}</p>
                   <p className="text-gray-600">🏭 {device.plantId?.name || 'N/A'}</p>
+                  <p className="text-gray-600">📡 {device.zoneId?.zoneName || device.zoneId?.name || 'N/A'}</p>
                 </div>
               </div>
               {device.status === 'online' && device.lastReading?.temperature && (
@@ -283,7 +456,85 @@ const DevicesManagement = () => {
         })}
       </div>
 
-      {/* Add Device Modal */}
+      {filteredDevices.length === 0 && (
+        <div className="text-center py-12 bg-white rounded-xl">
+          <FaMicrochip className="text-6xl text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500">No devices found</p>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+          >
+            Register your first device
+          </button>
+        </div>
+      )}
+
+      {/* Assign External Device Modal */}
+      {showAssignModal && selectedExternalDevice && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4">
+            <div className="fixed inset-0 bg-black/50" onClick={() => setShowAssignModal(false)}></div>
+            <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full">
+              <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h2 className="text-xl font-bold text-gray-800">Assign External Device</h2>
+                <button onClick={() => setShowAssignModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                  <FaTimes />
+                </button>
+              </div>
+              <div className="p-6">
+                <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm font-medium text-gray-700">Device: {selectedExternalDevice.device_id}</p>
+                  <p className="text-xs text-gray-500 mt-1">Last reading: {new Date(selectedExternalDevice.created_at).toLocaleString()}</p>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Assign to Zone *</label>
+                    <select
+                      value={newDevice.zoneId}
+                      onChange={(e) => setNewDevice({...newDevice, zoneId: e.target.value})}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="">Select Zone</option>
+                      {zones.map(zone => <option key={zone._id} value={zone._id}>{zone.zoneName}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Assign to Plant *</label>
+                    <select
+                      value={newDevice.plantId}
+                      onChange={(e) => setNewDevice({...newDevice, plantId: e.target.value})}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="">Select Plant</option>
+                      {plants.map(plant => <option key={plant._id} value={plant._id}>{plant.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Installation Location</label>
+                    <input
+                      type="text"
+                      value={newDevice.location}
+                      onChange={(e) => setNewDevice({...newDevice, location: e.target.value})}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500"
+                      placeholder="e.g., Machine #3"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
+                  <button onClick={() => setShowAssignModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Cancel
+                  </button>
+                  <button onClick={handleAssignDevice} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Assign Device
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Device Modal (same as before) */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4">
@@ -296,7 +547,6 @@ const DevicesManagement = () => {
                 </button>
               </div>
               <div className="p-6">
-                {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">{error}</div>}
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Device ID *</label>
@@ -375,7 +625,7 @@ const DevicesManagement = () => {
         </div>
       )}
 
-      {/* Edit Device Modal */}
+      {/* Edit Device Modal (same as before) */}
       {showEditModal && selectedDevice && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4">
