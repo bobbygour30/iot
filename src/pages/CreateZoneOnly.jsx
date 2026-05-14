@@ -224,7 +224,7 @@ const CreateZoneOnly = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Purpose</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Additional Information</label>
                   <input
                     type="text"
                     value={currentZone.purpose}

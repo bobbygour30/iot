@@ -212,7 +212,7 @@ const CreatePlant = () => {
 
                 {/* Description */}
                 <div className="md:col-span-2">
-                  <label className="block mb-2 font-medium text-gray-700">Description</label>
+                  <label className="block mb-2 font-medium text-gray-700">Additional Information</label>
                   <textarea
                     rows="3"
                     value={currentPlant.description}

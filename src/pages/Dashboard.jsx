@@ -1,4 +1,4 @@
-// src/pages/Dashboard.jsx - Complete fixed version
+// src/pages/Dashboard.jsx - Updated with all parameters in table
 import React, { useState, useEffect } from 'react';
 import { 
   FaFileDownload, 
@@ -25,7 +25,11 @@ import {
   FaCompress,
   FaFilter,
   FaTint,
-  FaFlask
+  FaFlask,
+  FaWind,
+  FaMoon,
+  FaFire,
+  FaSmog
 } from 'react-icons/fa';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
@@ -61,7 +65,12 @@ const Dashboard = () => {
   const parameters = [
     { id: 'temperature', name: 'Temperature', icon: <FaThermometerHalf />, color: 'orange', dataKey: 'temperature', unit: '°C', comingSoon: false },
     { id: 'humidity', name: 'Relative Humidity', icon: <FaTint />, color: 'blue', dataKey: 'humidity', unit: '%', comingSoon: false },
-    { id: 'voc', name: 'TVOC', icon: <FaFlask />, color: 'green', dataKey: 'voc', unit: 'ppb', comingSoon: false }
+    { id: 'voc', name: 'TVOC', icon: <FaFlask />, color: 'green', dataKey: 'voc', unit: 'ppb', comingSoon: false },
+    { id: 'airVelocity', name: 'Air Velocity', icon: <FaWind />, color: 'cyan', dataKey: 'airVelocity', unit: 'm/s', comingSoon: true },
+    { id: 'pm', name: 'PM - 2.5/10', icon: <FaSmog />, color: 'red', dataKey: 'pm', unit: 'µg/m³', comingSoon: true },
+    { id: 'co2', name: 'CO2', icon: <FaFire />, color: 'purple', dataKey: 'co2', unit: 'ppm', comingSoon: true },
+    { id: 'lux', name: 'LUX', icon: <FaMoon />, color: 'yellow', dataKey: 'lux', unit: 'lx', comingSoon: true },
+    { id: 'noise', name: 'Noise (AV/PEAK)', icon: <FaVolumeUp />, color: 'pink', dataKey: 'noise', unit: 'dB', comingSoon: true }
   ];
 
   const [selectedParameters, setSelectedParameters] = useState(['temperature', 'humidity', 'voc']);
@@ -76,7 +85,6 @@ const Dashboard = () => {
   // Fetch dynamic data (plants and zones)
   const fetchDynamicData = async () => {
     try {
-      // Fetch plants
       const plantsResponse = await api.getPlants();
       let plantsData = [];
       if (plantsResponse.data && Array.isArray(plantsResponse.data)) {
@@ -85,7 +93,6 @@ const Dashboard = () => {
         plantsData = plantsResponse;
       }
       
-      console.log('Plants fetched:', plantsData.length);
       setPlantsList(plantsData);
       
       // Extract unique states and cities from plants
@@ -123,15 +130,11 @@ const Dashboard = () => {
           } else if (Array.isArray(zonesResponse)) {
             zonesData = zonesResponse;
           }
-          
-          console.log(`Zones for plant ${plant.name}:`, zonesData.length);
           allZones.push(...zonesData);
         } catch (err) {
           console.error(`Error fetching zones for plant ${plant.name}:`, err);
         }
       }
-      
-      console.log('All zones total:', allZones.length);
       setZonesList(allZones);
       
     } catch (err) {
@@ -139,7 +142,7 @@ const Dashboard = () => {
     }
   };
 
-  // Fetch sensor data
+  // Fetch sensor data and process by device
   const fetchSensorData = async () => {
     setLoading(true);
     try {
@@ -152,7 +155,13 @@ const Dashboard = () => {
         humidity: item.relative_humidity,
         voc: item.tvoc,
         device_id: item.device_id,
-        created_at: item.created_at
+        created_at: item.created_at,
+        // Add placeholder values for coming soon parameters
+        airVelocity: null,
+        pm: null,
+        co2: null,
+        lux: null,
+        noise: null
       }));
       
       setSensorData(mappedData);
@@ -201,36 +210,68 @@ const Dashboard = () => {
     return filtered;
   };
 
-  const processChartData = (dataKey) => {
+  // Process data for each device separately
+  const processDeviceData = () => {
     const filteredData = getFilteredData();
-    if (!filteredData.length) return [];
-    const sorted = [...filteredData].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-    return sorted.map(item => ({
-      time: new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      value: item[dataKey],
-      deviceId: item.device_id
-    }));
+    if (!filteredData.length) return {};
+    
+    const deviceMap = new Map();
+    
+    // Group data by device
+    filteredData.forEach(item => {
+      if (!deviceMap.has(item.device_id)) {
+        deviceMap.set(item.device_id, []);
+      }
+      deviceMap.get(item.device_id).push(item);
+    });
+    
+    // Process last 100 points for each device
+    const processedData = {};
+    deviceMap.forEach((readings, deviceId) => {
+      const sorted = [...readings].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      const last100 = sorted.slice(-100);
+      
+      processedData[deviceId] = {
+        temperature: last100.map(item => ({
+          time: new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          value: item.temperature,
+          fullTime: new Date(item.created_at)
+        })),
+        humidity: last100.map(item => ({
+          time: new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          value: item.humidity,
+          fullTime: new Date(item.created_at)
+        })),
+        voc: last100.map(item => ({
+          time: new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          value: item.voc > 50000 ? 50000 : item.voc,
+          fullTime: new Date(item.created_at)
+        }))
+      };
+    });
+    
+    return processedData;
   };
 
-  const temperatureData = processChartData('temperature');
-  const humidityData = processChartData('humidity');
-  const vocData = processChartData('voc');
+  const deviceData = processDeviceData();
+  const filteredDataCount = getFilteredData().length;
 
-  const getParameterValue = (paramId) => {
-    const filteredData = getFilteredData();
-    if (!filteredData.length) return null;
+  const getParameterValue = (deviceId, paramId) => {
+    if (!deviceData[deviceId]) return null;
     const param = parameters.find(p => p.id === paramId);
     if (!param) return null;
-    const latest = filteredData[filteredData.length - 1];
-    return latest[param.dataKey];
+    const data = deviceData[deviceId][param.dataKey];
+    if (!data || data.length === 0) return null;
+    return data[data.length - 1]?.value;
   };
 
-  const getParameterAverage = (paramId) => {
-    const filteredData = getFilteredData();
-    if (!filteredData.length) return null;
+  const getParameterAverage = (deviceId, paramId) => {
+    if (!deviceData[deviceId]) return null;
     const param = parameters.find(p => p.id === paramId);
     if (!param) return null;
-    const values = filteredData.map(d => d[param.dataKey]).filter(v => v !== undefined && v !== null);
+    const data = deviceData[deviceId][param.dataKey];
+    if (!data || data.length === 0) return null;
+    const values = data.map(d => d.value).filter(v => v !== undefined && v !== null);
     if (values.length === 0) return null;
     return (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
   };
@@ -239,7 +280,12 @@ const Dashboard = () => {
     const colors = {
       orange: 'text-orange-500',
       blue: 'text-blue-500',
-      green: 'text-green-500'
+      green: 'text-green-500',
+      cyan: 'text-cyan-500',
+      red: 'text-red-500',
+      purple: 'text-purple-500',
+      yellow: 'text-yellow-500',
+      pink: 'text-pink-500'
     };
     return colors[color] || 'text-gray-500';
   };
@@ -250,18 +296,6 @@ const Dashboard = () => {
     } else {
       setSelectedParameters([...selectedParameters, parameterId]);
     }
-  };
-
-  const getCurrentValue = (dataArray) => {
-    if (!dataArray.length) return null;
-    return dataArray[dataArray.length - 1]?.value;
-  };
-
-  const getAverageValue = (dataArray) => {
-    if (!dataArray.length) return null;
-    const values = dataArray.map(d => d.value).filter(v => v !== undefined && v !== null);
-    if (values.length === 0) return null;
-    return (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
   };
 
   const getAlertStatus = (value, type) => {
@@ -340,7 +374,7 @@ const Dashboard = () => {
     );
   }
 
-  const filteredDataCount = getFilteredData().length;
+  const selectedDevicesList = selectedDevice ? [selectedDevice] : devices;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
@@ -381,7 +415,6 @@ const Dashboard = () => {
         </div>
         
         <div className="p-4">
-          {/* Basic Filters Row */}
           <div className="flex flex-wrap items-center gap-3 mb-3">
             <div className="flex-1 min-w-[180px]">
               <select
@@ -420,7 +453,6 @@ const Dashboard = () => {
             </button>
           </div>
 
-          {/* Advanced Filters */}
           {showAdvancedFilters && (
             <div className="mt-4 pt-4 border-t border-gray-100">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -477,7 +509,6 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* Active Filters Display */}
           {(selectedDevice || selectedState || selectedCity || selectedPlant || selectedZone) && (
             <div className="mt-3 pt-3 border-t border-gray-100">
               <div className="flex flex-wrap gap-2">
@@ -538,13 +569,19 @@ const Dashboard = () => {
                 checked={selectedParameters.includes(param.id)}
                 onChange={() => handleParameterToggle(param.id)}
                 className="rounded text-purple-500 focus:ring-purple-500 w-3.5 h-3.5" 
+                disabled={param.comingSoon}
               />
               <span className={getParameterColorClass(param.color)}>
                 {param.icon}
               </span>
-              <span className="text-sm text-gray-700">
+              <span className={`text-sm ${param.comingSoon ? 'text-gray-400' : 'text-gray-700'}`}>
                 {param.name}
               </span>
+              {param.comingSoon && (
+                <span className="text-xs bg-yellow-100 text-yellow-600 px-1.5 py-0.5 rounded-full ml-0.5">
+                  Soon
+                </span>
+              )}
             </label>
           ))}
         </div>
@@ -553,174 +590,126 @@ const Dashboard = () => {
         </p>
       </div>
 
-      {/* Current Values Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        {selectedParameters.map((paramId) => {
-          const param = parameters.find(p => p.id === paramId);
-          const currentValue = getParameterValue(paramId);
-          const avgValue = getParameterAverage(paramId);
-          const alertThreshold = paramId === 'temperature' ? 34 : paramId === 'voc' ? 35000 : 80;
-          const isAlert = currentValue !== null && currentValue > alertThreshold;
+      {/* Device-wise Charts */}
+      <div id="chart-container" className="space-y-12 mb-6">
+        {selectedDevicesList.map((deviceId) => {
+          const deviceInfo = deviceData[deviceId];
+          if (!deviceInfo) return null;
           
           return (
-            <div key={param.id} className={`bg-white rounded-xl p-4 shadow-lg border transition-all ${isAlert ? 'border-red-300 bg-red-50/30' : 'border-gray-100 hover:shadow-xl'}`}>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-gray-500 text-sm flex items-center gap-2">
-                  <span className={getParameterColorClass(param.color)}>{param.icon}</span>
-                  {param.name}
+            <div key={deviceId} className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <FaMicrochip className="text-purple-500" />
+                  Device: {deviceId}
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Last 100 readings • {deviceInfo.temperature?.length || 0} data points
                 </p>
-                {isAlert ? (
-                  <FaExclamationTriangle className="text-red-500 text-xs" />
-                ) : (
-                  <FaCheckCircle className="text-green-500 text-xs" />
-                )}
               </div>
-              <p className="text-2xl font-bold text-gray-800">
-                {currentValue !== null ? `${currentValue}${param.unit}` : '--'}
-              </p>
-              <p className="text-xs text-gray-500 mt-2">
-                Avg: {avgValue !== null ? `${avgValue}${param.unit}` : '--'} • {filteredDataCount} readings
-              </p>
+              
+              <div className="p-6 space-y-8">
+                {selectedParameters.map((paramId) => {
+                  const param = parameters.find(p => p.id === paramId);
+                  if (param.comingSoon) {
+                    return (
+                      <div key={paramId} className="bg-gray-50 rounded-xl p-8 text-center">
+                        <div className="text-4xl mb-3">{param.icon}</div>
+                        <h4 className="text-lg font-semibold text-gray-700">{param.name}</h4>
+                        <p className="text-gray-500">Coming soon</p>
+                      </div>
+                    );
+                  }
+                  
+                  const chartData = deviceInfo[param.dataKey];
+                  const currentValue = getParameterValue(deviceId, paramId);
+                  const avgValue = getParameterAverage(deviceId, paramId);
+                  const isAlert = getAlertStatus(currentValue, paramId);
+                  
+                  if (!chartData || chartData.length === 0) {
+                    return (
+                      <div key={paramId} className="bg-gray-50 rounded-xl p-8 text-center">
+                        <h4 className="text-lg font-semibold text-gray-700">{param.name}</h4>
+                        <p className="text-gray-500">No data available</p>
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <div key={paramId} className="space-y-3">
+                      <div className="flex justify-between items-center flex-wrap gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className={getParameterColorClass(param.color)}>
+                            {param.icon}
+                          </span>
+                          <h4 className="font-semibold text-gray-800">{param.name} Trend</h4>
+                          {isAlert && (
+                            <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <FaExclamationTriangle className="text-xs" /> Alert
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-500">Current:</span>
+                            <span className="font-semibold ml-1 text-gray-800">
+                              {currentValue !== null ? `${currentValue}${param.unit}` : '--'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Average:</span>
+                            <span className="font-semibold ml-1 text-gray-800">
+                              {avgValue !== null ? `${avgValue}${param.unit}` : '--'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <ResponsiveContainer width="100%" height={350}>
+                        <LineChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis 
+                            dataKey="time" 
+                            tick={{ fontSize: 11 }} 
+                            interval="preserveStartEnd"
+                            label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
+                          />
+                          <YAxis 
+                            tick={{ fontSize: 11 }}
+                            label={{ value: param.unit, angle: -90, position: 'insideLeft' }}
+                            domain={['auto', 'auto']}
+                          />
+                          <Tooltip />
+                          <Legend />
+                          <Line 
+                            type="monotone" 
+                            dataKey="value" 
+                            stroke={param.color === 'orange' ? '#f97316' : param.color === 'blue' ? '#3b82f6' : '#10b981'} 
+                            strokeWidth={2.5} 
+                            dot={{ r: 2 }} 
+                            activeDot={{ r: 6 }} 
+                            name={param.name} 
+                            unit={param.unit} 
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           );
         })}
+        
+        {selectedDevicesList.length === 0 && (
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-12 text-center">
+            <FaMicrochip className="text-6xl text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-600 mb-2">No devices selected</h3>
+            <p className="text-gray-400">Please select a device from the filters above</p>
+          </div>
+        )}
       </div>
 
-      {/* Three Separate Graphs */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        {/* Temperature Graph */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-white">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FaThermometerHalf className="text-orange-500 text-lg" />
-                <h3 className="font-semibold text-gray-800">Temperature Trend</h3>
-              </div>
-              <div className="text-right">
-                <p className="text-xl font-bold text-gray-800">
-                  {getCurrentValue(temperatureData) !== null ? `${getCurrentValue(temperatureData)}°C` : '--'}
-                </p>
-                <p className="text-xs text-gray-500">
-                  Avg: {getAverageValue(temperatureData) !== null ? `${getAverageValue(temperatureData)}°C` : '--'}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="p-4">
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={temperatureData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="time" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-                <YAxis tick={{ fontSize: 10 }} domain={['auto', 'auto']} />
-                <Tooltip />
-                <Line 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="#f97316" 
-                  strokeWidth={2} 
-                  dot={{ r: 2, fill: '#f97316' }} 
-                  name="Temperature" 
-                  unit="°C" 
-                />
-              </LineChart>
-            </ResponsiveContainer>
-            <div className="mt-2 text-center">
-              {getAlertStatus(getCurrentValue(temperatureData), 'temperature') && (
-                <span className="text-xs text-red-500 flex items-center justify-center gap-1">
-                  <FaExclamationTriangle /> Alert: High temperature detected
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Humidity Graph */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FaTint className="text-blue-500 text-lg" />
-                <h3 className="font-semibold text-gray-800">Humidity Trend</h3>
-              </div>
-              <div className="text-right">
-                <p className="text-xl font-bold text-gray-800">
-                  {getCurrentValue(humidityData) !== null ? `${getCurrentValue(humidityData)}%` : '--'}
-                </p>
-                <p className="text-xs text-gray-500">
-                  Avg: {getAverageValue(humidityData) !== null ? `${getAverageValue(humidityData)}%` : '--'}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="p-4">
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={humidityData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="time" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-                <YAxis tick={{ fontSize: 10 }} domain={[0, 100]} />
-                <Tooltip />
-                <Line 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="#3b82f6" 
-                  strokeWidth={2} 
-                  dot={{ r: 2, fill: '#3b82f6' }} 
-                  name="Humidity" 
-                  unit="%" 
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* VOC Graph */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-green-50 to-white">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FaFlask className="text-green-500 text-lg" />
-                <h3 className="font-semibold text-gray-800">VOC Trend</h3>
-              </div>
-              <div className="text-right">
-                <p className="text-xl font-bold text-gray-800">
-                  {getCurrentValue(vocData) !== null ? `${getCurrentValue(vocData)} ppb` : '--'}
-                </p>
-                <p className="text-xs text-gray-500">
-                  Avg: {getAverageValue(vocData) !== null ? `${getAverageValue(vocData)} ppb` : '--'}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="p-4">
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={vocData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="time" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-                <YAxis tick={{ fontSize: 10 }} domain={['auto', 'auto']} />
-                <Tooltip />
-                <Line 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="#10b981" 
-                  strokeWidth={2} 
-                  dot={{ r: 2, fill: '#10b981' }} 
-                  name="VOC" 
-                  unit="ppb" 
-                />
-              </LineChart>
-            </ResponsiveContainer>
-            <div className="mt-2 text-center">
-              {getAlertStatus(getCurrentValue(vocData), 'voc') && (
-                <span className="text-xs text-red-500 flex items-center justify-center gap-1">
-                  <FaExclamationTriangle /> Alert: High VOC level detected
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Readings Table */}
+      {/* Recent Readings Table - Updated with all parameters including coming soon */}
       <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
         <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
           <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
@@ -730,13 +719,18 @@ const Dashboard = () => {
           <p className="text-xs text-gray-500 mt-1">Latest {Math.min(10, getFilteredData().length)} records {selectedDevice && `for ${selectedDevice}`}</p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[1200px]">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Device ID</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Temperature</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Humidity</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">VOC</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Air Velocity</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">PM 2.5/10</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">CO2</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">LUX</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Noise</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Time</th>
               </tr>
             </thead>
@@ -755,12 +749,27 @@ const Dashboard = () => {
                       {reading.voc > 50000 ? '>50k' : reading.voc}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className="text-gray-400 italic">Coming Soon</span>
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className="text-gray-400 italic">Coming Soon</span>
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className="text-gray-400 italic">Coming Soon</span>
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className="text-gray-400 italic">Coming Soon</span>
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className="text-gray-400 italic">Coming Soon</span>
+                  </td>
                   <td className="px-4 py-3 text-xs text-gray-500">{new Date(reading.created_at).toLocaleString()}</td>
                 </tr>
               ))}
               {getFilteredData().length === 0 && (
                 <tr>
-                  <td colSpan="5" className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan="10" className="px-4 py-8 text-center text-gray-500">
                     No data available for selected filters
                   </td>
                 </tr>
