@@ -278,7 +278,7 @@ const CreateZoneOnly = () => {
                     </div>
                   </div>
                   {zone.area && <p className="text-sm text-gray-500">📍 Area: {zone.area}</p>}
-                  {zone.purpose && <p className="text-sm text-gray-500">🎯 Purpose: {zone.purpose}</p>}
+                  {zone.purpose && <p className="text-sm text-gray-500">🎯 Additional Information: {zone.purpose}</p>}
                   <div className="flex gap-3 mt-3 pt-3 border-t border-gray-100">
                     <button
                       onClick={() => handleEditZone(zone)}
