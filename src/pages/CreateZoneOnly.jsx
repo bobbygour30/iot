@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { 
   FaMicrochip, 
   FaPlus, 
-  FaCheck, 
   FaTrash,
   FaSpinner,
   FaEdit,
@@ -36,9 +35,15 @@ const CreateZoneOnly = () => {
     setFetching(true);
     try {
       const response = await api.getPlants();
-      setPlants(response.data || []);
+      const plantsData = response.data || response;
+      if (Array.isArray(plantsData)) {
+        setPlants(plantsData);
+      } else {
+        setPlants([]);
+      }
     } catch (error) {
       console.error('Error fetching plants:', error);
+      setMessage({ type: 'error', text: 'Failed to fetch plants' });
     } finally {
       setFetching(false);
     }
@@ -47,9 +52,15 @@ const CreateZoneOnly = () => {
   const fetchZones = async (plantId) => {
     try {
       const response = await api.getZonesByPlant(plantId);
-      setZones(response.data || []);
+      const zonesData = response.data || response;
+      if (Array.isArray(zonesData)) {
+        setZones(zonesData);
+      } else {
+        setZones([]);
+      }
     } catch (error) {
       console.error('Error fetching zones:', error);
+      setMessage({ type: 'error', text: 'Failed to fetch zones' });
     }
   };
 
@@ -68,14 +79,16 @@ const CreateZoneOnly = () => {
     try {
       if (editingZone) {
         const response = await api.updateZone(editingZone._id, currentZone);
-        setZones(zones.map(z => z._id === editingZone._id ? response.data : z));
+        const updatedZone = response.data || response;
+        setZones(zones.map(z => z._id === editingZone._id ? updatedZone : z));
         setMessage({ type: 'success', text: 'Zone updated successfully!' });
       } else {
         const response = await api.createZone({
           ...currentZone,
           plantId: selectedPlant._id
         });
-        setZones([response.data, ...zones]);
+        const newZone = response.data || response;
+        setZones([newZone, ...zones]);
         setMessage({ type: 'success', text: 'Zone created successfully!' });
       }
       resetForm();
@@ -278,7 +291,7 @@ const CreateZoneOnly = () => {
                     </div>
                   </div>
                   {zone.area && <p className="text-sm text-gray-500">📍 Area: {zone.area}</p>}
-                  {zone.purpose && <p className="text-sm text-gray-500">🎯 Additional Information: {zone.purpose}</p>}
+                  {zone.purpose && <p className="text-sm text-gray-500">🎯 Purpose: {zone.purpose}</p>}
                   <div className="flex gap-3 mt-3 pt-3 border-t border-gray-100">
                     <button
                       onClick={() => handleEditZone(zone)}

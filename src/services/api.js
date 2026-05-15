@@ -371,6 +371,11 @@ getHeaders() {
     localStorage.removeItem('userRole');
     sessionStorage.clear();
   }
+
+  async validateDeviceId(deviceId) {
+  return this.request(`/devices/validate/${deviceId}`);
 }
+}
+
 
 export default new ApiService();

@@ -1,4 +1,4 @@
-// src/pages/Dashboard.jsx - Updated with all parameters in table
+// src/pages/Dashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   FaFileDownload, 
@@ -52,14 +52,17 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [devices, setDevices] = useState([]);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   
   // Dynamic filter data
   const [plantsList, setPlantsList] = useState([]);
   const [zonesList, setZonesList] = useState([]);
+  const [devicesList, setDevicesList] = useState([]);
   const [statesList, setStatesList] = useState([]);
   const [citiesByStateMap, setCitiesByStateMap] = useState({});
+  
+  // Device readings data
+  const [deviceReadings, setDeviceReadings] = useState({});
   
   // Multi-select parameters
   const parameters = [
@@ -82,9 +85,10 @@ const Dashboard = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Fetch dynamic data (plants and zones)
+  // Fetch all dynamic data
   const fetchDynamicData = async () => {
     try {
+      // Fetch plants
       const plantsResponse = await api.getPlants();
       let plantsData = [];
       if (plantsResponse.data && Array.isArray(plantsResponse.data)) {
@@ -119,7 +123,7 @@ const Dashboard = () => {
       });
       setCitiesByStateMap(citiesMap);
       
-      // Fetch ALL zones for the user
+      // Fetch all zones for the user
       const allZones = [];
       for (const plant of plantsData) {
         try {
@@ -130,54 +134,77 @@ const Dashboard = () => {
           } else if (Array.isArray(zonesResponse)) {
             zonesData = zonesResponse;
           }
-          allZones.push(...zonesData);
+          const zonesWithPlant = zonesData.map(zone => ({
+            ...zone,
+            plantId: plant._id,
+            plantName: plant.name
+          }));
+          allZones.push(...zonesWithPlant);
         } catch (err) {
           console.error(`Error fetching zones for plant ${plant.name}:`, err);
         }
       }
       setZonesList(allZones);
       
+      // Fetch all devices for the user (through zones)
+      const allDevices = [];
+      for (const zone of allZones) {
+        try {
+          const devicesResponse = await api.getDevicesByZone(zone._id);
+          let devicesData = [];
+          if (devicesResponse.data && Array.isArray(devicesResponse.data)) {
+            devicesData = devicesResponse.data;
+          } else if (Array.isArray(devicesResponse)) {
+            devicesData = devicesResponse;
+          }
+          const devicesWithZone = devicesData.map(device => ({
+            ...device,
+            zoneId: zone._id,
+            zoneName: zone.name,
+            plantId: zone.plantId,
+            plantName: zone.plantName
+          }));
+          allDevices.push(...devicesWithZone);
+        } catch (err) {
+          console.error(`Error fetching devices for zone ${zone.name}:`, err);
+        }
+      }
+      setDevicesList(allDevices);
+      
     } catch (err) {
       console.error('Error fetching dynamic data:', err);
     }
   };
 
-  // Fetch sensor data and process by device
+  // Fetch sensor data from external API
   const fetchSensorData = async () => {
     setLoading(true);
     try {
       const response = await fetch('https://sensor-six-iota.vercel.app/api/sensors');
-      if (!response.ok) throw new Error('Failed to fetch data');
+      if (!response.ok) throw new Error('Failed to fetch sensor data');
       const data = await response.json();
       
-      const mappedData = data.map(item => ({
-        ...item,
-        humidity: item.relative_humidity,
-        voc: item.tvoc,
-        device_id: item.device_id,
-        created_at: item.created_at,
-        // Add placeholder values for coming soon parameters
-        airVelocity: null,
-        pm: null,
-        co2: null,
-        lux: null,
-        noise: null
-      }));
+      // Group readings by device_id
+      const readingsByDevice = {};
+      data.forEach(reading => {
+        if (!readingsByDevice[reading.device_id]) {
+          readingsByDevice[reading.device_id] = [];
+        }
+        readingsByDevice[reading.device_id].push({
+          temperature: reading.temperature,
+          humidity: reading.relative_humidity,
+          voc: reading.tvoc,
+          timestamp: reading.created_at
+        });
+      });
       
-      setSensorData(mappedData);
+      // Sort readings by timestamp for each device and keep last 100
+      Object.keys(readingsByDevice).forEach(deviceId => {
+        readingsByDevice[deviceId].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        readingsByDevice[deviceId] = readingsByDevice[deviceId].slice(-100);
+      });
       
-      const uniqueDevices = [...new Set(mappedData.map(item => item.device_id))];
-      setDevices(uniqueDevices);
-      
-      // Set default date range based on data
-      if (mappedData.length > 0 && !dateFrom && !dateTo) {
-        const dates = mappedData.map(d => new Date(d.created_at));
-        const minDate = new Date(Math.min(...dates));
-        const maxDate = new Date(Math.max(...dates));
-        setDateFrom(minDate.toISOString().split('T')[0]);
-        setDateTo(maxDate.toISOString().split('T')[0]);
-      }
-      
+      setDeviceReadings(readingsByDevice);
       setLastUpdate(new Date());
       setError(null);
     } catch (err) {
@@ -194,84 +221,49 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const getFilteredData = () => {
-    let filtered = [...sensorData];
+  // Get filtered devices based on plant and zone selection
+  const getFilteredDevices = () => {
+    let filtered = [...devicesList];
+    
+    if (selectedPlant) {
+      filtered = filtered.filter(device => device.plantId === selectedPlant);
+    }
+    if (selectedZone) {
+      filtered = filtered.filter(device => device.zoneId === selectedZone);
+    }
     if (selectedDevice) {
-      filtered = filtered.filter(item => item.device_id === selectedDevice);
+      filtered = filtered.filter(device => device._id === selectedDevice || device.deviceId === selectedDevice);
     }
-    if (dateFrom) {
-      filtered = filtered.filter(item => new Date(item.created_at) >= new Date(dateFrom));
-    }
-    if (dateTo) {
-      const endDate = new Date(dateTo);
-      endDate.setHours(23, 59, 59, 999);
-      filtered = filtered.filter(item => new Date(item.created_at) <= endDate);
-    }
+    
     return filtered;
   };
 
-  // Process data for each device separately
-  const processDeviceData = () => {
-    const filteredData = getFilteredData();
-    if (!filteredData.length) return {};
-    
-    const deviceMap = new Map();
-    
-    // Group data by device
-    filteredData.forEach(item => {
-      if (!deviceMap.has(item.device_id)) {
-        deviceMap.set(item.device_id, []);
-      }
-      deviceMap.get(item.device_id).push(item);
-    });
-    
-    // Process last 100 points for each device
-    const processedData = {};
-    deviceMap.forEach((readings, deviceId) => {
-      const sorted = [...readings].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-      const last100 = sorted.slice(-100);
-      
-      processedData[deviceId] = {
-        temperature: last100.map(item => ({
-          time: new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          value: item.temperature,
-          fullTime: new Date(item.created_at)
-        })),
-        humidity: last100.map(item => ({
-          time: new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          value: item.humidity,
-          fullTime: new Date(item.created_at)
-        })),
-        voc: last100.map(item => ({
-          time: new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          value: item.voc > 50000 ? 50000 : item.voc,
-          fullTime: new Date(item.created_at)
-        }))
-      };
-    });
-    
-    return processedData;
+  const filteredDevices = getFilteredDevices();
+  const filteredDataCount = sensorData.length;
+
+  const getDeviceReadings = (deviceId) => {
+    return deviceReadings[deviceId] || [];
   };
 
-  const deviceData = processDeviceData();
-  const filteredDataCount = getFilteredData().length;
-
-  const getParameterValue = (deviceId, paramId) => {
-    if (!deviceData[deviceId]) return null;
-    const param = parameters.find(p => p.id === paramId);
-    if (!param) return null;
-    const data = deviceData[deviceId][param.dataKey];
-    if (!data || data.length === 0) return null;
-    return data[data.length - 1]?.value;
+  const getParameterValues = (deviceId, paramKey) => {
+    const readings = getDeviceReadings(deviceId);
+    return readings.map(reading => ({
+      time: new Date(reading.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      value: reading[paramKey],
+      fullTime: new Date(reading.timestamp)
+    }));
   };
 
-  const getParameterAverage = (deviceId, paramId) => {
-    if (!deviceData[deviceId]) return null;
-    const param = parameters.find(p => p.id === paramId);
-    if (!param) return null;
-    const data = deviceData[deviceId][param.dataKey];
-    if (!data || data.length === 0) return null;
-    const values = data.map(d => d.value).filter(v => v !== undefined && v !== null);
+  const getCurrentValue = (deviceId, paramKey) => {
+    const readings = getDeviceReadings(deviceId);
+    if (readings.length === 0) return null;
+    return readings[readings.length - 1][paramKey];
+  };
+
+  const getAverageValue = (deviceId, paramKey) => {
+    const readings = getDeviceReadings(deviceId);
+    if (readings.length === 0) return null;
+    const values = readings.map(r => r[paramKey]).filter(v => v !== undefined && v !== null);
     if (values.length === 0) return null;
     return (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
   };
@@ -306,13 +298,23 @@ const Dashboard = () => {
 
   const handleDownload = () => {
     try {
-      const exportData = sensorData.map(item => ({
-        'Device ID': item.device_id,
-        'Temperature (°C)': item.temperature,
-        'Humidity (%)': item.humidity,
-        'VOC (ppb)': item.voc,
-        'Timestamp': new Date(item.created_at).toLocaleString()
-      }));
+      // Prepare export data for all devices
+      const exportData = [];
+      filteredDevices.forEach(device => {
+        const readings = getDeviceReadings(device.deviceId);
+        readings.forEach(reading => {
+          exportData.push({
+            'Device ID': device.deviceId,
+            'Device Name': device.deviceId,
+            'Plant': device.plantName,
+            'Zone': device.zoneName,
+            'Temperature (°C)': reading.temperature,
+            'Humidity (%)': reading.humidity,
+            'VOC (ppb)': reading.voc,
+            'Timestamp': new Date(reading.timestamp).toLocaleString()
+          });
+        });
+      });
 
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
@@ -354,13 +356,6 @@ const Dashboard = () => {
     setSelectedPlant('');
     setSelectedZone('');
     setSelectedDevice('');
-    if (sensorData.length > 0) {
-      const dates = sensorData.map(d => new Date(d.created_at));
-      const minDate = new Date(Math.min(...dates));
-      const maxDate = new Date(Math.max(...dates));
-      setDateFrom(minDate.toISOString().split('T')[0]);
-      setDateTo(maxDate.toISOString().split('T')[0]);
-    }
   };
 
   if (loading && !sensorData.length) {
@@ -374,19 +369,17 @@ const Dashboard = () => {
     );
   }
 
-  const selectedDevicesList = selectedDevice ? [selectedDevice] : devices;
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Sensor Monitoring Dashboard</h1>
-          <p className="text-gray-500 mt-1">Real-time environmental data from your devices</p>
+          <p className="text-gray-500 mt-1">Real-time environmental data from your registered devices</p>
           <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
             <span><FaClock className="inline mr-1" /> Last update: {lastUpdate.toLocaleTimeString()}</span>
-            <span>• {sensorData.length} total readings</span>
-            <span>• {filteredDataCount} filtered readings</span>
+            <span>• {filteredDevices.length} devices</span>
+            <span>• {filteredDataCount} total readings</span>
           </div>
         </div>
         <div className="flex gap-2">
@@ -415,36 +408,63 @@ const Dashboard = () => {
         </div>
         
         <div className="p-4">
-          <div className="flex flex-wrap items-center gap-3 mb-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Plant Filter */}
             <div className="flex-1 min-w-[180px]">
+              <label className="block text-xs text-gray-500 mb-1">Plant</label>
+              <select
+                value={selectedPlant}
+                onChange={(e) => {
+                  setSelectedPlant(e.target.value);
+                  setSelectedZone('');
+                  setSelectedDevice('');
+                }}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300 bg-white"
+              >
+                <option value="">All Plants</option>
+                {plantsList.map(plant => (
+                  <option key={plant._id} value={plant._id}>{plant.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Zone Filter - depends on selected plant */}
+            <div className="flex-1 min-w-[180px]">
+              <label className="block text-xs text-gray-500 mb-1">Zone</label>
+              <select
+                value={selectedZone}
+                onChange={(e) => {
+                  setSelectedZone(e.target.value);
+                  setSelectedDevice('');
+                }}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300 bg-white"
+                disabled={!selectedPlant && zonesList.length === 0}
+              >
+                <option value="">All Zones</option>
+                {zonesList
+                  .filter(zone => !selectedPlant || zone.plantId === selectedPlant)
+                  .map(zone => (
+                    <option key={zone._id} value={zone._id}>{zone.name}</option>
+                  ))}
+              </select>
+            </div>
+
+            {/* Device Filter - depends on selected zone */}
+            <div className="flex-1 min-w-[180px]">
+              <label className="block text-xs text-gray-500 mb-1">Device</label>
               <select
                 value={selectedDevice}
                 onChange={(e) => setSelectedDevice(e.target.value)}
                 className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300 bg-white"
+                disabled={!selectedZone && filteredDevices.length === 0}
               >
-                <option value="">All Devices ({devices.length})</option>
-                {devices.map(device => (
-                  <option key={device} value={device}>{device}</option>
+                <option value="">All Devices</option>
+                {filteredDevices.map(device => (
+                  <option key={device._id} value={device._id}>{device.deviceId}</option>
                 ))}
               </select>
             </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
-                style={{ width: '140px' }}
-              />
-              <span className="text-gray-400 text-sm">→</span>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
-                style={{ width: '140px' }}
-              />
-            </div>
+
             <button
               onClick={handleResetFilters}
               className="px-3 py-2 text-sm text-purple-600 hover:text-purple-700 font-medium border border-purple-200 rounded-lg hover:bg-purple-50 transition-all whitespace-nowrap"
@@ -453,6 +473,7 @@ const Dashboard = () => {
             </button>
           </div>
 
+          {/* Advanced Filters */}
           {showAdvancedFilters && (
             <div className="mt-4 pt-4 border-t border-gray-100">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -480,66 +501,59 @@ const Dashboard = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Plant</label>
-                  <select
-                    value={selectedPlant}
-                    onChange={(e) => setSelectedPlant(e.target.value)}
+                  <label className="block text-xs text-gray-500 mb-1">Date From</label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
                     className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
-                  >
-                    <option value="">All Plants</option>
-                    {plantsList.map(plant => <option key={plant._id} value={plant.name}>{plant.name}</option>)}
-                  </select>
+                  />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Zone</label>
-                  <select
-                    value={selectedZone}
-                    onChange={(e) => setSelectedZone(e.target.value)}
+                  <label className="block text-xs text-gray-500 mb-1">Date To</label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
                     className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
-                  >
-                    <option value="">All Zones</option>
-                    {zonesList.map(zone => (
-                      <option key={zone._id} value={zone.name}>
-                        {zone.name}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
             </div>
           )}
 
-          {(selectedDevice || selectedState || selectedCity || selectedPlant || selectedZone) && (
+          {/* Active Filters Display */}
+          {(selectedPlant || selectedZone || selectedDevice || selectedState || selectedCity) && (
             <div className="mt-3 pt-3 border-t border-gray-100">
               <div className="flex flex-wrap gap-2">
-                {selectedDevice && (
+                {selectedPlant && plantsList.find(p => p._id === selectedPlant) && (
                   <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
-                    Device: {selectedDevice}
-                    <button onClick={() => setSelectedDevice('')} className="hover:text-purple-900">×</button>
+                    Plant: {plantsList.find(p => p._id === selectedPlant)?.name}
+                    <button onClick={() => setSelectedPlant('')} className="hover:text-purple-900">×</button>
+                  </span>
+                )}
+                {selectedZone && zonesList.find(z => z._id === selectedZone) && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
+                    Zone: {zonesList.find(z => z._id === selectedZone)?.name}
+                    <button onClick={() => setSelectedZone('')} className="hover:text-blue-900">×</button>
+                  </span>
+                )}
+                {selectedDevice && filteredDevices.find(d => d._id === selectedDevice) && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
+                    Device: {filteredDevices.find(d => d._id === selectedDevice)?.deviceId}
+                    <button onClick={() => setSelectedDevice('')} className="hover:text-green-900">×</button>
                   </span>
                 )}
                 {selectedState && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs">
                     State: {selectedState}
-                    <button onClick={() => setSelectedState('')} className="hover:text-blue-900">×</button>
+                    <button onClick={() => setSelectedState('')} className="hover:text-orange-900">×</button>
                   </span>
                 )}
                 {selectedCity && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
-                    City: {selectedCity}
-                    <button onClick={() => setSelectedCity('')} className="hover:text-green-900">×</button>
-                  </span>
-                )}
-                {selectedPlant && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs">
-                    Plant: {selectedPlant}
-                    <button onClick={() => setSelectedPlant('')} className="hover:text-orange-900">×</button>
-                  </span>
-                )}
-                {selectedZone && (
                   <span className="inline-flex items-center gap-1 px-2 py-1 bg-pink-100 text-pink-700 rounded-full text-xs">
-                    Zone: {selectedZone}
-                    <button onClick={() => setSelectedZone('')} className="hover:text-pink-900">×</button>
+                    City: {selectedCity}
+                    <button onClick={() => setSelectedCity('')} className="hover:text-pink-900">×</button>
                   </span>
                 )}
               </div>
@@ -592,185 +606,191 @@ const Dashboard = () => {
 
       {/* Device-wise Charts */}
       <div id="chart-container" className="space-y-12 mb-6">
-        {selectedDevicesList.map((deviceId) => {
-          const deviceInfo = deviceData[deviceId];
-          if (!deviceInfo) return null;
-          
-          return (
-            <div key={deviceId} className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                  <FaMicrochip className="text-purple-500" />
-                  Device: {deviceId}
-                </h3>
-                <p className="text-xs text-gray-500 mt-1">
-                  Last 100 readings • {deviceInfo.temperature?.length || 0} data points
-                </p>
-              </div>
-              
-              <div className="p-6 space-y-8">
-                {selectedParameters.map((paramId) => {
-                  const param = parameters.find(p => p.id === paramId);
-                  if (param.comingSoon) {
-                    return (
-                      <div key={paramId} className="bg-gray-50 rounded-xl p-8 text-center">
-                        <div className="text-4xl mb-3">{param.icon}</div>
-                        <h4 className="text-lg font-semibold text-gray-700">{param.name}</h4>
-                        <p className="text-gray-500">Coming soon</p>
-                      </div>
-                    );
-                  }
-                  
-                  const chartData = deviceInfo[param.dataKey];
-                  const currentValue = getParameterValue(deviceId, paramId);
-                  const avgValue = getParameterAverage(deviceId, paramId);
-                  const isAlert = getAlertStatus(currentValue, paramId);
-                  
-                  if (!chartData || chartData.length === 0) {
-                    return (
-                      <div key={paramId} className="bg-gray-50 rounded-xl p-8 text-center">
-                        <h4 className="text-lg font-semibold text-gray-700">{param.name}</h4>
-                        <p className="text-gray-500">No data available</p>
-                      </div>
-                    );
-                  }
-                  
-                  return (
-                    <div key={paramId} className="space-y-3">
-                      <div className="flex justify-between items-center flex-wrap gap-3">
-                        <div className="flex items-center gap-2">
-                          <span className={getParameterColorClass(param.color)}>
-                            {param.icon}
-                          </span>
-                          <h4 className="font-semibold text-gray-800">{param.name} Trend</h4>
-                          {isAlert && (
-                            <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full flex items-center gap-1">
-                              <FaExclamationTriangle className="text-xs" /> Alert
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex gap-4 text-sm">
-                          <div>
-                            <span className="text-gray-500">Current:</span>
-                            <span className="font-semibold ml-1 text-gray-800">
-                              {currentValue !== null ? `${currentValue}${param.unit}` : '--'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Average:</span>
-                            <span className="font-semibold ml-1 text-gray-800">
-                              {avgValue !== null ? `${avgValue}${param.unit}` : '--'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <ResponsiveContainer width="100%" height={350}>
-                        <LineChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                          <XAxis 
-                            dataKey="time" 
-                            tick={{ fontSize: 11 }} 
-                            interval="preserveStartEnd"
-                            label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
-                          />
-                          <YAxis 
-                            tick={{ fontSize: 11 }}
-                            label={{ value: param.unit, angle: -90, position: 'insideLeft' }}
-                            domain={['auto', 'auto']}
-                          />
-                          <Tooltip />
-                          <Legend />
-                          <Line 
-                            type="monotone" 
-                            dataKey="value" 
-                            stroke={param.color === 'orange' ? '#f97316' : param.color === 'blue' ? '#3b82f6' : '#10b981'} 
-                            strokeWidth={2.5} 
-                            dot={{ r: 2 }} 
-                            activeDot={{ r: 6 }} 
-                            name={param.name} 
-                            unit={param.unit} 
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-        
-        {selectedDevicesList.length === 0 && (
+        {filteredDevices.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-12 text-center">
             <FaMicrochip className="text-6xl text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-600 mb-2">No devices selected</h3>
-            <p className="text-gray-400">Please select a device from the filters above</p>
+            <h3 className="text-lg font-semibold text-gray-600 mb-2">No devices found</h3>
+            <p className="text-gray-400">
+              {selectedPlant || selectedZone 
+                ? "No devices registered in the selected plant/zone. Please add devices first."
+                : "Please select a plant and zone to view devices"}
+            </p>
           </div>
+        ) : (
+          filteredDevices.map((device) => {
+            const readings = getDeviceReadings(device.deviceId);
+            const hasData = readings.length > 0;
+            
+            return (
+              <div key={device._id} className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                  <div className="flex justify-between items-start flex-wrap gap-2">
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <FaMicrochip className="text-purple-500" />
+                        {device.deviceId}
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {device.plantName} → {device.zoneName} • {readings.length} readings
+                      </p>
+                    </div>
+                    {hasData && readings[readings.length - 1] && (
+                      <div className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full flex items-center gap-1">
+                        <FaCheckCircle className="text-xs" /> Live
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="p-6 space-y-8">
+                  {selectedParameters.map((paramId) => {
+                    const param = parameters.find(p => p.id === paramId);
+                    if (param.comingSoon) {
+                      return (
+                        <div key={paramId} className="bg-gray-50 rounded-xl p-8 text-center">
+                          <div className="text-4xl mb-3">{param.icon}</div>
+                          <h4 className="text-lg font-semibold text-gray-700">{param.name}</h4>
+                          <p className="text-gray-500">Coming soon</p>
+                        </div>
+                      );
+                    }
+                    
+                    const chartData = getParameterValues(device.deviceId, param.dataKey);
+                    const currentValue = getCurrentValue(device.deviceId, param.dataKey);
+                    const avgValue = getAverageValue(device.deviceId, param.dataKey);
+                    const isAlert = getAlertStatus(currentValue, paramId);
+                    
+                    if (!chartData || chartData.length === 0) {
+                      return (
+                        <div key={paramId} className="bg-gray-50 rounded-xl p-8 text-center">
+                          <h4 className="text-lg font-semibold text-gray-700">{param.name}</h4>
+                          <p className="text-gray-500">No data available for this device</p>
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <div key={paramId} className="space-y-3">
+                        <div className="flex justify-between items-center flex-wrap gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className={getParameterColorClass(param.color)}>
+                              {param.icon}
+                            </span>
+                            <h4 className="font-semibold text-gray-800">{param.name} Trend</h4>
+                            {isAlert && (
+                              <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <FaExclamationTriangle className="text-xs" /> Alert
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">Current:</span>
+                              <span className="font-semibold ml-1 text-gray-800">
+                                {currentValue !== null ? `${currentValue}${param.unit}` : '--'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Average:</span>
+                              <span className="font-semibold ml-1 text-gray-800">
+                                {avgValue !== null ? `${avgValue}${param.unit}` : '--'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <ResponsiveContainer width="100%" height={350}>
+                          <LineChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                            <XAxis 
+                              dataKey="time" 
+                              tick={{ fontSize: 11 }} 
+                              interval="preserveStartEnd"
+                              label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
+                            />
+                            <YAxis 
+                              tick={{ fontSize: 11 }}
+                              label={{ value: param.unit, angle: -90, position: 'insideLeft' }}
+                              domain={['auto', 'auto']}
+                            />
+                            <Tooltip />
+                            <Legend />
+                            <Line 
+                              type="monotone" 
+                              dataKey="value" 
+                              stroke={param.color === 'orange' ? '#f97316' : param.color === 'blue' ? '#3b82f6' : '#10b981'} 
+                              strokeWidth={2.5} 
+                              dot={{ r: 2 }} 
+                              activeDot={{ r: 6 }} 
+                              name={param.name} 
+                              unit={param.unit} 
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
 
-      {/* Recent Readings Table - Updated with all parameters including coming soon */}
+      {/* Recent Readings Table */}
       <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
         <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
           <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
             <FaMicrochip className="text-purple-500" />
             Recent Sensor Readings
           </h3>
-          <p className="text-xs text-gray-500 mt-1">Latest {Math.min(10, getFilteredData().length)} records {selectedDevice && `for ${selectedDevice}`}</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Latest records from {filteredDevices.length} device{filteredDevices.length !== 1 ? 's' : ''}
+          </p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1200px]">
+          <table className="w-full min-w-[800px]">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Device ID</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Plant</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Zone</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Temperature</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Humidity</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">VOC</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Air Velocity</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">PM 2.5/10</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">CO2</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">LUX</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Noise</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Time</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {getFilteredData().slice(0, 10).map((reading, idx) => (
-                <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 text-sm font-mono text-gray-700">{reading.device_id}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className={reading.temperature > 34 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
-                      {reading.temperature}°C
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{reading.humidity}%</td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className={reading.voc > 35000 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
-                      {reading.voc > 50000 ? '>50k' : reading.voc}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className="text-gray-400 italic">Coming Soon</span>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className="text-gray-400 italic">Coming Soon</span>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className="text-gray-400 italic">Coming Soon</span>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className="text-gray-400 italic">Coming Soon</span>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className="text-gray-400 italic">Coming Soon</span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-gray-500">{new Date(reading.created_at).toLocaleString()}</td>
-                </tr>
-              ))}
-              {getFilteredData().length === 0 && (
+              {filteredDevices.slice(0, 10).map((device) => {
+                const readings = getDeviceReadings(device.deviceId);
+                const latestReading = readings[readings.length - 1];
+                
+                return (
+                  <tr key={device._id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 text-sm font-mono text-gray-700">{device.deviceId}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{device.plantName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{device.zoneName}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={latestReading?.temperature > 34 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
+                        {latestReading?.temperature || '--'}°C
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{latestReading?.humidity || '--'}%</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={latestReading?.voc > 35000 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
+                        {latestReading?.voc || '--'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500">
+                      {latestReading?.timestamp ? new Date(latestReading.timestamp).toLocaleString() : 'No data'}
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredDevices.length === 0 && (
                 <tr>
-                  <td colSpan="10" className="px-4 py-8 text-center text-gray-500">
-                    No data available for selected filters
+                  <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
+                    No devices found. Please add devices from the "Add Device" page.
                   </td>
                 </tr>
               )}

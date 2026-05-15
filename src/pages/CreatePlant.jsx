@@ -1,4 +1,3 @@
-// src/pages/CreatePlant.jsx
 import React, { useState, useEffect } from 'react';
 import {
   FaIndustry,
@@ -10,6 +9,25 @@ import {
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
+// Static list of Indian states and cities (you can expand this)
+const indianStates = [
+  'Maharashtra', 'Delhi', 'Karnataka', 'Tamil Nadu', 'Gujarat', 
+  'Uttar Pradesh', 'West Bengal', 'Rajasthan', 'Telangana', 'Punjab'
+];
+
+const citiesByState = {
+  'Maharashtra': ['Mumbai', 'Pune', 'Nagpur', 'Nashik', 'Thane'],
+  'Delhi': ['New Delhi', 'Delhi Cantt', 'Narela'],
+  'Karnataka': ['Bengaluru', 'Mysore', 'Hubli', 'Mangalore'],
+  'Tamil Nadu': ['Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli'],
+  'Gujarat': ['Ahmedabad', 'Surat', 'Vadodara', 'Rajkot'],
+  'Uttar Pradesh': ['Lucknow', 'Kanpur', 'Agra', 'Varanasi'],
+  'West Bengal': ['Kolkata', 'Howrah', 'Durgapur', 'Siliguri'],
+  'Rajasthan': ['Jaipur', 'Jodhpur', 'Udaipur', 'Kota'],
+  'Telangana': ['Hyderabad', 'Warangal', 'Nizamabad', 'Khammam'],
+  'Punjab': ['Ludhiana', 'Amritsar', 'Jalandhar', 'Patiala']
+};
+
 const CreatePlant = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -17,6 +35,8 @@ const CreatePlant = () => {
   const [plants, setPlants] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingPlant, setEditingPlant] = useState(null);
+  const [selectedState, setSelectedState] = useState('');
+  const [availableCities, setAvailableCities] = useState([]);
   const [currentPlant, setCurrentPlant] = useState({
     name: '',
     city: '',
@@ -30,11 +50,23 @@ const CreatePlant = () => {
     fetchPlants();
   }, []);
 
+  // Update available cities when state changes
+  useEffect(() => {
+    if (currentPlant.state) {
+      setAvailableCities(citiesByState[currentPlant.state] || []);
+      // Reset city if current city not in new state's cities
+      if (!citiesByState[currentPlant.state]?.includes(currentPlant.city)) {
+        setCurrentPlant(prev => ({ ...prev, city: '' }));
+      }
+    } else {
+      setAvailableCities([]);
+    }
+  }, [currentPlant.state]);
+
   const fetchPlants = async () => {
     setFetching(true);
     try {
       const response = await api.getPlants();
-      // The API returns data directly, not wrapped in another data property
       const plantsData = response.data || response;
       if (Array.isArray(plantsData)) {
         setPlants(plantsData);
@@ -54,6 +86,16 @@ const CreatePlant = () => {
   const handleAddPlant = async () => {
     if (!currentPlant.name.trim()) {
       setMessage({ type: 'error', text: 'Please enter plant name' });
+      return;
+    }
+
+    if (!currentPlant.state) {
+      setMessage({ type: 'error', text: 'Please select a state' });
+      return;
+    }
+
+    if (!currentPlant.city) {
+      setMessage({ type: 'error', text: 'Please select a city' });
       return;
     }
 
@@ -101,6 +143,7 @@ const CreatePlant = () => {
       address: plant.address || '',
       description: plant.description || ''
     });
+    setSelectedState(plant.state || '');
     setShowForm(true);
   };
 
@@ -112,6 +155,7 @@ const CreatePlant = () => {
       address: '',
       description: ''
     });
+    setSelectedState('');
     setEditingPlant(null);
     setShowForm(false);
   };
@@ -174,28 +218,35 @@ const CreatePlant = () => {
                   />
                 </div>
 
-                {/* City */}
+                {/* State Dropdown */}
                 <div>
-                  <label className="block mb-2 font-medium text-gray-700">City</label>
-                  <input
-                    type="text"
+                  <label className="block mb-2 font-medium text-gray-700">State *</label>
+                  <select
+                    value={currentPlant.state}
+                    onChange={(e) => setCurrentPlant({ ...currentPlant, state: e.target.value, city: '' })}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="">Select State</option>
+                    {indianStates.map(state => (
+                      <option key={state} value={state}>{state}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* City Dropdown (depends on state) */}
+                <div>
+                  <label className="block mb-2 font-medium text-gray-700">City *</label>
+                  <select
                     value={currentPlant.city}
                     onChange={(e) => setCurrentPlant({ ...currentPlant, city: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="Enter city"
-                  />
-                </div>
-
-                {/* State */}
-                <div>
-                  <label className="block mb-2 font-medium text-gray-700">State</label>
-                  <input
-                    type="text"
-                    value={currentPlant.state}
-                    onChange={(e) => setCurrentPlant({ ...currentPlant, state: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="Enter state"
-                  />
+                    disabled={!currentPlant.state}
+                  >
+                    <option value="">Select City</option>
+                    {availableCities.map(city => (
+                      <option key={city} value={city}>{city}</option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Address */}
@@ -218,7 +269,7 @@ const CreatePlant = () => {
                     value={currentPlant.description}
                     onChange={(e) => setCurrentPlant({ ...currentPlant, description: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="Enter description"
+                    placeholder="Any additional details about the plant"
                   />
                 </div>
               </div>

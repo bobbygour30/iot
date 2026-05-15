@@ -1,16 +1,14 @@
-// src/pages/AddDevice.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   FaCog, 
   FaPlus, 
   FaTrash,
   FaSpinner,
-  FaEdit,
   FaIndustry,
   FaMicrochip,
-  FaThermometerHalf,
-  FaTint,
-  FaFlask
+  FaCheckCircle,
+  FaTimesCircle,
+  FaSearch
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -19,28 +17,28 @@ const AddDevice = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [validating, setValidating] = useState(false);
+  
+  // Plants and Zones
   const [plants, setPlants] = useState([]);
   const [selectedPlant, setSelectedPlant] = useState(null);
   const [zones, setZones] = useState([]);
   const [selectedZone, setSelectedZone] = useState(null);
+  
+  // Devices
   const [devices, setDevices] = useState([]);
+  
+  // Device Input - SIMPLIFIED: only device ID
+  const [deviceIdInput, setDeviceIdInput] = useState('');
+  const [validatedDevice, setValidatedDevice] = useState(null);
+  const [validationError, setValidationError] = useState('');
+  const [validationSuccess, setValidationSuccess] = useState(false);
+  
+  // Form states
   const [showForm, setShowForm] = useState(false);
-  const [editingDevice, setEditingDevice] = useState(null);
-  const [currentDevice, setCurrentDevice] = useState({
-    deviceId: '',
-    type: 'Multi-Sensor',
-    model: '',
-    location: '',
-    thresholds: {
-      temperature: 34,
-      humidity: 70,
-      voc: 35000
-    }
-  });
   const [message, setMessage] = useState({ type: '', text: '' });
 
-  const deviceTypes = ['Temperature Sensor', 'Humidity Sensor', 'VOC Sensor', 'Multi-Sensor'];
-
+  // Fetch plants on load
   useEffect(() => {
     fetchPlants();
   }, []);
@@ -49,9 +47,15 @@ const AddDevice = () => {
     setFetching(true);
     try {
       const response = await api.getPlants();
-      setPlants(response.data || []);
+      const plantsData = response.data || response;
+      if (Array.isArray(plantsData)) {
+        setPlants(plantsData);
+      } else {
+        setPlants([]);
+      }
     } catch (error) {
       console.error('Error fetching plants:', error);
+      setMessage({ type: 'error', text: 'Failed to fetch plants' });
     } finally {
       setFetching(false);
     }
@@ -60,62 +64,127 @@ const AddDevice = () => {
   const fetchZones = async (plantId) => {
     try {
       const response = await api.getZonesByPlant(plantId);
-      setZones(response.data || []);
+      const zonesData = response.data || response;
+      if (Array.isArray(zonesData)) {
+        setZones(zonesData);
+      } else {
+        setZones([]);
+      }
     } catch (error) {
       console.error('Error fetching zones:', error);
+      setMessage({ type: 'error', text: 'Failed to fetch zones' });
     }
   };
 
   const fetchDevices = async (zoneId) => {
     try {
       const response = await api.getDevicesByZone(zoneId);
-      setDevices(response.data || []);
+      const devicesData = response.data || response;
+      if (Array.isArray(devicesData)) {
+        setDevices(devicesData);
+      } else {
+        setDevices([]);
+      }
     } catch (error) {
       console.error('Error fetching devices:', error);
+      setMessage({ type: 'error', text: 'Failed to fetch devices' });
     }
   };
 
-  const handlePlantSelect = async (plant) => {
-    setSelectedPlant(plant);
-    setSelectedZone(null);
-    setDevices([]);
-    await fetchZones(plant._id);
+  // Check if device exists in external API
+  const checkDeviceInExternalAPI = async (deviceId) => {
+    try {
+      const response = await fetch('https://sensor-six-iota.vercel.app/api/sensors');
+      if (!response.ok) throw new Error('Failed to fetch external devices');
+      const data = await response.json();
+      
+      // Find the device with matching ID
+      const device = data.find(d => d.device_id === deviceId);
+      return device;
+    } catch (error) {
+      console.error('Error checking external API:', error);
+      return null;
+    }
   };
 
-  const handleZoneSelect = async (zone) => {
-    setSelectedZone(zone);
-    await fetchDevices(zone._id);
+  // Validate Device ID against external API (SIMPLIFIED)
+  const validateDeviceId = async () => {
+    if (!deviceIdInput.trim()) {
+      setValidationError('Please enter a Device ID');
+      return false;
+    }
+
+    setValidating(true);
+    setValidationError('');
+    setValidationSuccess(false);
+    
+    try {
+      // Check against external API
+      const externalDevice = await checkDeviceInExternalAPI(deviceIdInput.trim());
+      
+      if (!externalDevice) {
+        setValidationError('Device ID not found. Please check the ID and try again.');
+        setValidating(false);
+        return false;
+      }
+
+      // Check if device already exists in this zone
+      const existingInZone = devices.find(d => d.deviceId === deviceIdInput.trim());
+      if (existingInZone) {
+        setValidationError('Device already exists in this zone');
+        setValidating(false);
+        return false;
+      }
+
+      // Device is valid - store all device info
+      setValidatedDevice({
+        deviceId: externalDevice.device_id,
+        lastReading: {
+          temperature: externalDevice.temperature,
+          humidity: externalDevice.relative_humidity,
+          voc: externalDevice.tvoc,
+          timestamp: externalDevice.created_at
+        }
+      });
+      setValidationSuccess(true);
+      setValidating(false);
+      return true;
+    } catch (error) {
+      setValidationError('Failed to validate device');
+      setValidating(false);
+      return false;
+    }
   };
 
   const handleAddDevice = async () => {
-    if (!currentDevice.deviceId.trim()) {
-      setMessage({ type: 'error', text: 'Please enter device ID' });
+    if (!validatedDevice) {
+      setMessage({ type: 'error', text: 'Please validate device ID first' });
       return;
     }
     
     setLoading(true);
     try {
-      if (editingDevice) {
-        const response = await api.updateDevice(editingDevice._id, currentDevice);
-        setDevices(devices.map(d => d._id === editingDevice._id ? response.data : d));
-        setMessage({ type: 'success', text: 'Device updated successfully!' });
-      } else {
-        const response = await api.registerDevice({
-          deviceId: currentDevice.deviceId,
-          type: currentDevice.type,
-          model: currentDevice.model,
-          location: currentDevice.location,
-          thresholds: currentDevice.thresholds,
-          plantId: selectedPlant._id,
-          zoneId: selectedZone._id
-        });
-        setDevices([response.data, ...devices]);
-        setMessage({ type: 'success', text: 'Device added successfully!' });
-      }
-      resetForm();
+      const deviceData = {
+        deviceId: validatedDevice.deviceId,
+        type: 'Multi-Sensor',
+        plantId: selectedPlant._id,
+        zoneId: selectedZone._id
+      };
+      
+      const response = await api.registerDevice(deviceData);
+      const newDevice = response.data || response;
+      setDevices([newDevice, ...devices]);
+      setMessage({ type: 'success', text: 'Device added successfully!' });
+      
+      // Reset form
+      setValidatedDevice(null);
+      setDeviceIdInput('');
+      setValidationSuccess(false);
+      setShowForm(false);
+      
       setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Failed to save device' });
+      setMessage({ type: 'error', text: error.message || 'Failed to add device' });
     } finally {
       setLoading(false);
     }
@@ -134,28 +203,32 @@ const AddDevice = () => {
     }
   };
 
-  const handleEditDevice = (device) => {
-    setEditingDevice(device);
-    setCurrentDevice({
-      deviceId: device.deviceId,
-      type: device.type,
-      model: device.model || '',
-      location: device.location || '',
-      thresholds: device.thresholds || { temperature: 34, humidity: 70, voc: 35000 }
-    });
-    setShowForm(true);
+  const resetForm = () => {
+    setValidatedDevice(null);
+    setDeviceIdInput('');
+    setValidationSuccess(false);
+    setValidationError('');
+    setShowForm(false);
   };
 
-  const resetForm = () => {
-    setCurrentDevice({
-      deviceId: '',
-      type: 'Multi-Sensor',
-      model: '',
-      location: '',
-      thresholds: { temperature: 34, humidity: 70, voc: 35000 }
-    });
-    setEditingDevice(null);
-    setShowForm(false);
+  const handlePlantSelect = async (plant) => {
+    setSelectedPlant(plant);
+    setSelectedZone(null);
+    setDevices([]);
+    setValidatedDevice(null);
+    setDeviceIdInput('');
+    setValidationSuccess(false);
+    setValidationError('');
+    await fetchZones(plant._id);
+  };
+
+  const handleZoneSelect = async (zone) => {
+    setSelectedZone(zone);
+    await fetchDevices(zone._id);
+    setValidatedDevice(null);
+    setDeviceIdInput('');
+    setValidationSuccess(false);
+    setValidationError('');
   };
 
   if (fetching) {
@@ -187,7 +260,9 @@ const AddDevice = () => {
                   <FaIndustry className="text-purple-500 text-2xl" />
                   <h3 className="font-semibold text-gray-800 text-lg">{plant.name}</h3>
                 </div>
-                {plant.location && <p className="text-sm text-gray-500">📍 {plant.location}</p>}
+                {(plant.city || plant.state) && (
+                  <p className="text-sm text-gray-500">📍 {plant.city}{plant.city && plant.state ? ', ' : ''}{plant.state}</p>
+                )}
                 <p className="text-sm text-gray-500 mt-2">Click to select →</p>
               </div>
             ))}
@@ -275,118 +350,95 @@ const AddDevice = () => {
             onClick={() => setShowForm(true)}
             className="mb-6 px-6 py-3 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
           >
-            <FaPlus /> Register New Device
+            <FaPlus /> Add New Device
           </button>
         )}
 
-        {/* Device Form */}
+        {/* Device Form - SIMPLIFIED */}
         {showForm && (
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden mb-8">
             <div className="bg-gradient-to-r from-green-500 to-teal-500 px-6 py-4">
-              <h2 className="text-xl font-bold text-white">{editingDevice ? 'Edit Device' : 'Register New Device'}</h2>
+              <h2 className="text-xl font-bold text-white">Add New Device</h2>
+              <p className="text-green-100 text-sm mt-1">Enter the Device ID from your sensor hardware</p>
             </div>
             <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Device ID *</label>
+              {/* Device ID Input with Validation */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Device ID *</label>
+                <div className="flex gap-3">
                   <input
                     type="text"
-                    value={currentDevice.deviceId}
-                    onChange={(e) => setCurrentDevice({ ...currentDevice, deviceId: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500"
-                    placeholder="e.g., SENSOR-001"
+                    value={deviceIdInput}
+                    onChange={(e) => {
+                      setDeviceIdInput(e.target.value);
+                      setValidationSuccess(false);
+                      setValidationError('');
+                      setValidatedDevice(null);
+                    }}
+                    className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 font-mono"
+                    placeholder="Enter Device ID (e.g., FACTORY-FLOOR-1-DEV-01)"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Device Type *</label>
-                  <select
-                    value={currentDevice.type}
-                    onChange={(e) => setCurrentDevice({ ...currentDevice, type: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500"
+                  <button
+                    onClick={validateDeviceId}
+                    disabled={validating || !deviceIdInput.trim()}
+                    className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all flex items-center gap-2 disabled:opacity-50"
                   >
-                    {deviceTypes.map(type => <option key={type} value={type}>{type}</option>)}
-                  </select>
+                    {validating ? <FaSpinner className="animate-spin" /> : <FaSearch />}
+                    Validate
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Model</label>
-                  <input
-                    type="text"
-                    value={currentDevice.model}
-                    onChange={(e) => setCurrentDevice({ ...currentDevice, model: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500"
-                    placeholder="e.g., SHT-30"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Installation Location</label>
-                  <input
-                    type="text"
-                    value={currentDevice.location}
-                    onChange={(e) => setCurrentDevice({ ...currentDevice, location: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500"
-                    placeholder="e.g., Machine #3"
-                  />
-                </div>
-              </div>
-              
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Threshold Settings</label>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-xs text-gray-500">Temperature (°C)</label>
-                    <input
-                      type="number"
-                      value={currentDevice.thresholds.temperature}
-                      onChange={(e) => setCurrentDevice({
-                        ...currentDevice,
-                        thresholds: { ...currentDevice.thresholds, temperature: parseFloat(e.target.value) }
-                      })}
-                      className="w-full px-3 py-1 rounded border border-gray-300"
-                    />
+                
+                {/* Validation Result */}
+                {validationSuccess && validatedDevice && (
+                  <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-green-700 mb-2">
+                      <FaCheckCircle />
+                      <span className="font-medium">Device Found! Ready to add to {selectedZone.name}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 text-sm">
+                      <div>
+                        <span className="text-gray-500">Temperature:</span>
+                        <span className="ml-1 font-semibold">{validatedDevice.lastReading.temperature}°C</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Humidity:</span>
+                        <span className="ml-1 font-semibold">{validatedDevice.lastReading.humidity}%</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">VOC:</span>
+                        <span className="ml-1 font-semibold">{validatedDevice.lastReading.voc} ppb</span>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-xs text-gray-500">Humidity (%)</label>
-                    <input
-                      type="number"
-                      value={currentDevice.thresholds.humidity}
-                      onChange={(e) => setCurrentDevice({
-                        ...currentDevice,
-                        thresholds: { ...currentDevice.thresholds, humidity: parseFloat(e.target.value) }
-                      })}
-                      className="w-full px-3 py-1 rounded border border-gray-300"
-                    />
+                )}
+                
+                {validationError && (
+                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+                    <FaTimesCircle />
+                    <span>{validationError}</span>
                   </div>
-                  <div>
-                    <label className="text-xs text-gray-500">VOC (ppb)</label>
-                    <input
-                      type="number"
-                      value={currentDevice.thresholds.voc}
-                      onChange={(e) => setCurrentDevice({
-                        ...currentDevice,
-                        thresholds: { ...currentDevice.thresholds, voc: parseInt(e.target.value) }
-                      })}
-                      className="w-full px-3 py-1 rounded border border-gray-300"
-                    />
-                  </div>
+                )}
+              </div>
+
+              {/* Only show add button after validation */}
+              {validationSuccess && (
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={resetForm}
+                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAddDevice}
+                    disabled={loading}
+                    className="px-6 py-2 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg hover:shadow-lg flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {loading ? <FaSpinner className="animate-spin" /> : <FaPlus />}
+                    Add Device
+                  </button>
                 </div>
-              </div>
-              
-              <div className="flex justify-end gap-3 mt-6">
-                <button
-                  onClick={resetForm}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddDevice}
-                  disabled={loading}
-                  className="px-6 py-2 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg hover:shadow-lg flex items-center gap-2 disabled:opacity-50"
-                >
-                  {loading ? <FaSpinner className="animate-spin" /> : <FaPlus />}
-                  {editingDevice ? 'Update Device' : 'Register Device'}
-                </button>
-              </div>
+              )}
             </div>
           </div>
         )}
@@ -402,7 +454,7 @@ const AddDevice = () => {
             <div className="p-12 text-center">
               <FaCog className="text-6xl text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-600 mb-2">No Devices Yet</h3>
-              <p className="text-gray-400">Click "Register New Device" to get started</p>
+              <p className="text-gray-400">Click "Add New Device" to get started</p>
             </div>
           ) : (
             <div className="space-y-4 p-6">
@@ -413,32 +465,13 @@ const AddDevice = () => {
                       <div className="flex items-center gap-3 mb-2">
                         <FaCog className="text-green-500 text-xl" />
                         <span className="font-mono font-semibold text-gray-800">{device.deviceId}</span>
-                        <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full">{device.type}</span>
-                        {device.model && <span className="text-xs text-gray-500">{device.model}</span>}
+                        <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full">Multi-Sensor</span>
                       </div>
-                      <div className="grid grid-cols-3 gap-4 mt-2">
-                        <div className="flex items-center gap-2">
-                          <FaThermometerHalf className="text-orange-500 text-sm" />
-                          <span className="text-sm text-gray-600">Temp: {device.thresholds.temperature}°C</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <FaTint className="text-blue-500 text-sm" />
-                          <span className="text-sm text-gray-600">Humidity: {device.thresholds.humidity}%</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <FaFlask className="text-purple-500 text-sm" />
-                          <span className="text-sm text-gray-600">VOC: {device.thresholds.voc} ppb</span>
-                        </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        Added on: {new Date(device.createdAt).toLocaleDateString()}
                       </div>
-                      {device.location && <p className="text-xs text-gray-500 mt-2">📍 {device.location}</p>}
                     </div>
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEditDevice(device)}
-                        className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg"
-                      >
-                        <FaEdit />
-                      </button>
                       <button
                         onClick={() => handleDeleteDevice(device._id)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
