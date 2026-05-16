@@ -8,7 +8,8 @@ import {
   FaMicrochip,
   FaCheckCircle,
   FaTimesCircle,
-  FaSearch
+  FaSearch,
+  FaExclamationTriangle
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -33,6 +34,7 @@ const AddDevice = () => {
   const [validatedDevice, setValidatedDevice] = useState(null);
   const [validationError, setValidationError] = useState('');
   const [validationSuccess, setValidationSuccess] = useState(false);
+  const [existingDeviceInfo, setExistingDeviceInfo] = useState(null);
   
   // Form states
   const [showForm, setShowForm] = useState(false);
@@ -94,9 +96,10 @@ const AddDevice = () => {
   // Check if device exists in external API
   const checkDeviceInExternalAPI = async (deviceId) => {
     try {
-      const response = await fetch('https://sensor-six-iota.vercel.app/api/sensors');
+      const response = await fetch('https://sensor-six-iota.vercel.app/api/sensors?limit=100&hours=24');
       if (!response.ok) throw new Error('Failed to fetch external devices');
-      const data = await response.json();
+      const result = await response.json();
+      const data = result.data || result;
       
       // Find the device with matching ID
       const device = data.find(d => d.device_id === deviceId);
@@ -107,7 +110,19 @@ const AddDevice = () => {
     }
   };
 
-  // Validate Device ID against external API (SIMPLIFIED)
+  // Check if device already exists in ANY zone for this user
+  const checkDeviceExistsInAnyZone = async (deviceId) => {
+    try {
+      const response = await api.get(`/devices/validate/${deviceId}`);
+      const result = response.data || response;
+      return result.data;
+    } catch (error) {
+      console.error('Error checking device existence:', error);
+      return { exists: false, device: null, zoneName: null };
+    }
+  };
+
+  // Validate Device ID against external API and check for duplicates
   const validateDeviceId = async () => {
     if (!deviceIdInput.trim()) {
       setValidationError('Please enter a Device ID');
@@ -117,21 +132,31 @@ const AddDevice = () => {
     setValidating(true);
     setValidationError('');
     setValidationSuccess(false);
+    setExistingDeviceInfo(null);
     
     try {
-      // Check against external API
-      const externalDevice = await checkDeviceInExternalAPI(deviceIdInput.trim());
+      // FIRST: Check if device already exists in ANY zone for this user
+      const existingCheck = await checkDeviceExistsInAnyZone(deviceIdInput.trim());
       
-      if (!externalDevice) {
-        setValidationError('Device ID not found. Please check the ID and try again.');
+      if (existingCheck.exists && existingCheck.device) {
+        const zoneName = existingCheck.zoneName || existingCheck.device.zoneId?.name || 'another zone';
+        const plantName = existingCheck.device.plantId?.name || 'another plant';
+        
+        setValidationError(`❌ This device is already assigned to Zone: "${zoneName}" in Plant: "${plantName}". Please remove it from that zone first or use a different device.`);
+        setExistingDeviceInfo({
+          zoneName: zoneName,
+          plantName: plantName,
+          deviceId: deviceIdInput.trim()
+        });
         setValidating(false);
         return false;
       }
-
-      // Check if device already exists in this zone
-      const existingInZone = devices.find(d => d.deviceId === deviceIdInput.trim());
-      if (existingInZone) {
-        setValidationError('Device already exists in this zone');
+      
+      // SECOND: Check against external API
+      const externalDevice = await checkDeviceInExternalAPI(deviceIdInput.trim());
+      
+      if (!externalDevice) {
+        setValidationError('❌ Device ID not found in external sensor API. Please check the ID and try again.');
         setValidating(false);
         return false;
       }
@@ -180,22 +205,38 @@ const AddDevice = () => {
       setValidatedDevice(null);
       setDeviceIdInput('');
       setValidationSuccess(false);
+      setValidationError('');
+      setExistingDeviceInfo(null);
       setShowForm(false);
       
       setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Failed to add device' });
+      console.error('Add device error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to add device';
+      
+      // Check if it's a duplicate device error
+      if (errorMessage.includes('already assigned') || errorMessage.includes('already exists')) {
+        setMessage({ 
+          type: 'error', 
+          text: errorMessage 
+        });
+        // Reset validation to force re-validation
+        setValidationSuccess(false);
+        setValidatedDevice(null);
+      } else {
+        setMessage({ type: 'error', text: errorMessage });
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteDevice = async (id) => {
-    if (window.confirm('Are you sure you want to delete this device?')) {
+    if (window.confirm('Are you sure you want to delete this device? This will allow it to be added to another zone.')) {
       try {
         await api.deleteDevice(id);
         setDevices(devices.filter(d => d._id !== id));
-        setMessage({ type: 'success', text: 'Device deleted successfully!' });
+        setMessage({ type: 'success', text: 'Device deleted successfully! You can now add it to another zone.' });
         setTimeout(() => setMessage({ type: '', text: '' }), 3000);
       } catch (error) {
         setMessage({ type: 'error', text: 'Failed to delete device' });
@@ -208,6 +249,7 @@ const AddDevice = () => {
     setDeviceIdInput('');
     setValidationSuccess(false);
     setValidationError('');
+    setExistingDeviceInfo(null);
     setShowForm(false);
   };
 
@@ -219,6 +261,7 @@ const AddDevice = () => {
     setDeviceIdInput('');
     setValidationSuccess(false);
     setValidationError('');
+    setExistingDeviceInfo(null);
     await fetchZones(plant._id);
   };
 
@@ -229,6 +272,7 @@ const AddDevice = () => {
     setDeviceIdInput('');
     setValidationSuccess(false);
     setValidationError('');
+    setExistingDeviceInfo(null);
   };
 
   if (fetching) {
@@ -333,6 +377,9 @@ const AddDevice = () => {
           <p className="text-gray-500 mt-2">
             Adding devices for: <span className="font-semibold">{selectedPlant.name}</span> → <span className="font-semibold">{selectedZone.name}</span>
           </p>
+          <p className="text-xs text-amber-600 mt-1">
+            ⚠️ Note: Each device can only be assigned to ONE zone. If a device is already assigned elsewhere, you'll need to delete it first.
+          </p>
         </div>
 
         {/* Message Display */}
@@ -374,6 +421,7 @@ const AddDevice = () => {
                       setValidationSuccess(false);
                       setValidationError('');
                       setValidatedDevice(null);
+                      setExistingDeviceInfo(null);
                     }}
                     className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 font-mono"
                     placeholder="Enter Device ID (e.g., FACTORY-FLOOR-1-DEV-01)"
@@ -388,12 +436,12 @@ const AddDevice = () => {
                   </button>
                 </div>
                 
-                {/* Validation Result */}
+                {/* Validation Result - Success */}
                 {validationSuccess && validatedDevice && (
                   <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                     <div className="flex items-center gap-2 text-green-700 mb-2">
                       <FaCheckCircle />
-                      <span className="font-medium">Device Found! Ready to add to {selectedZone.name}</span>
+                      <span className="font-medium">✓ Device Found! Ready to add to {selectedZone.name}</span>
                     </div>
                     <div className="grid grid-cols-3 gap-3 text-sm">
                       <div>
@@ -412,7 +460,32 @@ const AddDevice = () => {
                   </div>
                 )}
                 
-                {validationError && (
+                {/* Validation Result - Error (Device already assigned) */}
+                {validationError && existingDeviceInfo && (
+                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-red-700 mb-2">
+                      <FaExclamationTriangle />
+                      <span className="font-medium">⚠️ Device Already Assigned!</span>
+                    </div>
+                    <p className="text-sm text-red-600 mb-2">
+                      This device is already assigned to:
+                    </p>
+                    <div className="bg-red-100 rounded-lg p-2 mb-2">
+                      <p className="text-sm font-mono text-red-800">
+                        📍 Zone: {existingDeviceInfo.zoneName}
+                      </p>
+                      <p className="text-sm font-mono text-red-800">
+                        🏭 Plant: {existingDeviceInfo.plantName}
+                      </p>
+                    </div>
+                    <p className="text-xs text-red-600">
+                      Each device can only be assigned to ONE zone. Please delete the device from its current zone first, or use a different device ID.
+                    </p>
+                  </div>
+                )}
+                
+                {/* Validation Result - Error (Not found in API) */}
+                {validationError && !existingDeviceInfo && (
                   <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
                     <FaTimesCircle />
                     <span>{validationError}</span>
@@ -420,7 +493,7 @@ const AddDevice = () => {
                 )}
               </div>
 
-              {/* Only show add button after validation */}
+              {/* Only show add button after validation success */}
               {validationSuccess && (
                 <div className="flex justify-end gap-3">
                   <button
@@ -435,7 +508,7 @@ const AddDevice = () => {
                     className="px-6 py-2 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg hover:shadow-lg flex items-center gap-2 disabled:opacity-50"
                   >
                     {loading ? <FaSpinner className="animate-spin" /> : <FaPlus />}
-                    Add Device
+                    Add Device to {selectedZone.name}
                   </button>
                 </div>
               )}
@@ -474,7 +547,8 @@ const AddDevice = () => {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleDeleteDevice(device._id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                        title="Delete device (allows re-assigning to another zone)"
                       >
                         <FaTrash />
                       </button>
