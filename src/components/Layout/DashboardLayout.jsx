@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import { FaBars, FaBell, FaSearch } from 'react-icons/fa';
+import { FaBars } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 
 const DashboardLayout = () => {
@@ -64,21 +64,9 @@ const DashboardLayout = () => {
       `}>
         {/* Top Bar (Desktop) */}
         <div className="hidden lg:flex items-center justify-between bg-white shadow-sm px-6 py-3 sticky top-0 z-10">
-          <div className="flex items-center gap-4 flex-1">
-            <div className="relative max-w-md w-full">
-              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search..."
-                className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-            </div>
-          </div>
+         
           <div className="flex items-center gap-4">
-            <button className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors">
-              <FaBell className="text-gray-600 text-lg" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+           
             <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
               <div className="text-right">
                 <p className="text-sm font-semibold text-gray-800">{getUserName()}</p>

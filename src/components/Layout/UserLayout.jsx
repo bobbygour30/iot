@@ -70,52 +70,9 @@ const UserLayout = () => {
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Search Bar - Desktop */}
-              <div className="hidden md:flex items-center bg-gray-50 rounded-lg px-3 py-2 min-w-[250px]">
-                <FaSearch className="text-gray-400 mr-2 text-sm" />
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="bg-transparent outline-none text-sm w-full"
-                />
-              </div>
-
-              {/* Notifications */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <FaBell className="text-gray-600 text-xl" />
-                  {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                  )}
-                </button>
-
-                {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-30">
-                    <div className="p-3 border-b border-gray-200">
-                      <h3 className="font-semibold text-gray-800">Notifications</h3>
-                    </div>
-                    <div className="max-h-96 overflow-y-auto">
-                      {notifications.map(notif => (
-                        <div key={notif.id} className={`p-3 hover:bg-gray-50 cursor-pointer ${!notif.read ? 'bg-blue-50' : ''}`}>
-                          <p className="text-sm text-gray-800">{notif.message}</p>
-                          <p className="text-xs text-gray-500 mt-1">{notif.time}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="p-2 border-t border-gray-200">
-                      <button className="text-xs text-purple-600 hover:text-purple-700 w-full text-center">
-                        View All Notifications
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
 
               {/* User Menu */}
-              <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
+              <div className="flex items-center gap-3 pl-3">
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-semibold text-gray-800">{user?.firstName || user?.email?.split('@')[0] || 'User'}</p>
                   <p className="text-xs text-gray-500">Zone User</p>

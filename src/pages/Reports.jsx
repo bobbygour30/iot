@@ -10,27 +10,24 @@ import {
   FaChartLine,
   FaChartBar,
   FaClock,
-  FaCheckCircle,
   FaSpinner,
   FaSearch,
   FaFilter,
   FaTimes,
   FaEye,
-  FaPrint,
-  FaEnvelope,
   FaDatabase,
   FaMicrochip,
   FaThermometerHalf,
-  FaLeaf,
-  FaVolumeUp,
-  FaEye as FaEyeIcon,
-  FaHeartbeat,
   FaTint,
   FaFlask,
   FaExclamationTriangle,
   FaIndustry,
   FaCity,
-  FaMapMarkerAlt
+  FaMapMarkerAlt,
+  FaChevronLeft,
+  FaChevronRight,
+  FaAngleDoubleLeft,
+  FaAngleDoubleRight
 } from 'react-icons/fa';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -56,7 +53,7 @@ const DownloadReports = () => {
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   
-  // Filter states - Matches Dashboard exactly
+  // Filter states - For data filtering before report generation
   const [selectedState, setSelectedState] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
   const [selectedPlant, setSelectedPlant] = useState('');
@@ -64,6 +61,12 @@ const DownloadReports = () => {
   const [selectedDevice, setSelectedDevice] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  
+  // Reports list filters and pagination
+  const [reportDateFrom, setReportDateFrom] = useState('');
+  const [reportDateTo, setReportDateTo] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   
   // Dynamic filter data
   const [plantsList, setPlantsList] = useState([]);
@@ -191,9 +194,19 @@ const DownloadReports = () => {
   const fetchSensorData = async () => {
     setLoading(true);
     try {
-      const response = await fetch('https://sensor-six-iota.vercel.app/api/sensors');
+      const response = await fetch('https://sensor-six-iota.vercel.app/api/sensors?limit=100&hours=168');
       if (!response.ok) throw new Error('Failed to fetch sensor data');
-      const data = await response.json();
+      const result = await response.json();
+      
+      // Handle API response structure
+      let data = [];
+      if (result.data && Array.isArray(result.data)) {
+        data = result.data;
+      } else if (Array.isArray(result)) {
+        data = result;
+      } else {
+        data = [];
+      }
       
       // Group readings by device_id
       const readingsByDevice = {};
@@ -217,7 +230,17 @@ const DownloadReports = () => {
       setDeviceReadings(readingsByDevice);
       setLastUpdate(new Date());
       setError(null);
+      
+      // Set default date range based on available data
+      if (data.length > 0 && !dateFrom && !dateTo) {
+        const dates = data.map(d => new Date(d.created_at));
+        const minDate = new Date(Math.min(...dates));
+        const maxDate = new Date(Math.max(...dates));
+        setDateFrom(minDate.toISOString().split('T')[0]);
+        setDateTo(maxDate.toISOString().split('T')[0]);
+      }
     } catch (err) {
+      console.error('Fetch error:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -249,7 +272,7 @@ const DownloadReports = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Get filtered devices based on plant, zone, and device selection
+  // Get filtered devices based on plant and zone selection
   const getFilteredDevices = () => {
     let filtered = [...devicesList];
     
@@ -267,7 +290,7 @@ const DownloadReports = () => {
   };
 
   // Get device readings for a specific device
-  const getDeviceReadings = (deviceId) => {
+  const getDeviceReadingsForDevice = (deviceId) => {
     return deviceReadings[deviceId] || [];
   };
 
@@ -277,7 +300,7 @@ const DownloadReports = () => {
     let allReadings = [];
     
     filteredDevices.forEach(device => {
-      const readings = getDeviceReadings(device.deviceId);
+      const readings = getDeviceReadingsForDevice(device.deviceId);
       readings.forEach(reading => {
         allReadings.push({
           device_id: device.deviceId,
@@ -501,13 +524,11 @@ const DownloadReports = () => {
       
       let blob;
       let fileExtension;
-      let mimeType;
       
       if (selectedFormat === 'pdf') {
         const doc = await generatePDF(reportData, reportName);
         blob = doc.output('blob');
         fileExtension = 'pdf';
-        mimeType = 'application/pdf';
       } else if (selectedFormat === 'excel') {
         const exportData = generateExcelData(reportData);
         const ws = XLSX.utils.json_to_sheet(exportData);
@@ -516,14 +537,12 @@ const DownloadReports = () => {
         const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
         blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         fileExtension = 'xlsx';
-        mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
       } else if (selectedFormat === 'csv') {
         const exportData = generateExcelData(reportData);
         const ws = XLSX.utils.json_to_sheet(exportData);
         const csvContent = XLSX.utils.sheet_to_csv(ws);
         blob = new Blob([csvContent], { type: 'text/csv' });
         fileExtension = 'csv';
-        mimeType = 'text/csv';
       }
       
       // Save report metadata
@@ -533,9 +552,10 @@ const DownloadReports = () => {
         type: selectedReportType,
         format: selectedFormat,
         date: new Date().toISOString().split('T')[0],
+        createdAt: new Date().toISOString(),
         size: `${(blob.size / (1024 * 1024)).toFixed(2)} MB`,
         status: 'completed',
-        zones: reportData.metadata.devices,
+        devices: reportData.metadata.devices,
         generatedBy: 'System',
         generatedAt: new Date().toLocaleString(),
         data: reportData,
@@ -582,6 +602,13 @@ const DownloadReports = () => {
       const updatedReports = reports.filter(r => r.id !== id);
       setReports(updatedReports);
       saveReports(updatedReports);
+      // Reset to first page if current page becomes empty
+      const newTotalPages = Math.ceil(filteredAndSearchedReports.length / itemsPerPage);
+      if (currentPage > newTotalPages && newTotalPages > 0) {
+        setCurrentPage(newTotalPages);
+      } else if (newTotalPages === 0) {
+        setCurrentPage(1);
+      }
     }
   };
 
@@ -601,14 +628,44 @@ const DownloadReports = () => {
     setSelectedParameters(['temperature', 'humidity', 'voc']);
   };
 
+  const handleResetReportFilters = () => {
+    setReportDateFrom('');
+    setReportDateTo('');
+    setSearchTerm('');
+    setCurrentPage(1);
+  };
+
   const filteredDevices = getFilteredDevices();
   const filteredDataCount = getFilteredData().length;
   
-  const filteredReports = reports.filter(report => 
-    report.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    report.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    report.zones.some(zone => zone.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Filter reports by search term and date range
+  const filteredAndSearchedReports = reports.filter(report => {
+    // Search term filter
+    const matchesSearch = report.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      report.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (report.devices && report.devices.some(device => device.toLowerCase().includes(searchTerm.toLowerCase())));
+    
+    // Date range filter for reports
+    let matchesDateRange = true;
+    if (reportDateFrom && report.date) {
+      matchesDateRange = matchesDateRange && report.date >= reportDateFrom;
+    }
+    if (reportDateTo && report.date) {
+      matchesDateRange = matchesDateRange && report.date <= reportDateTo;
+    }
+    
+    return matchesSearch && matchesDateRange;
+  });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredAndSearchedReports.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentReports = filteredAndSearchedReports.slice(startIndex, endIndex);
+
+  const goToPage = (page) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
 
   const getFormatIcon = (format) => {
     const f = formats.find(fmt => fmt.id === format);
@@ -629,7 +686,7 @@ const DownloadReports = () => {
     return colors[color] || 'text-gray-500';
   };
 
-  if (loading && !sensorData.length) {
+  if (loading && Object.keys(deviceReadings).length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
@@ -651,7 +708,7 @@ const DownloadReports = () => {
             <span><FaClock className="inline mr-1" /> Last update: {lastUpdate.toLocaleTimeString()}</span>
             <span>• {filteredDevices.length} devices</span>
             <span>• {filteredDataCount} filtered readings</span>
-            <span>• {reports.length} saved reports</span>
+            <span>• {reports.length} total reports</span>
           </div>
         </div>
         <button 
@@ -662,13 +719,13 @@ const DownloadReports = () => {
         </button>
       </div>
 
-      {/* Filters Section - Matches Dashboard exactly */}
+      {/* Data Filters Section - For filtering data before report generation */}
       {showFilters && (
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 mb-6 overflow-hidden">
           <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
             <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
               <FaFilter className="text-purple-500" />
-              Filters
+              Data Filters (Apply before generating report)
             </h2>
           </div>
           
@@ -821,13 +878,13 @@ const DownloadReports = () => {
                   )}
                   {dateFrom && (
                     <span className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded-full text-xs">
-                      From: {dateFrom}
+                      Data From: {dateFrom}
                       <button onClick={() => setDateFrom('')} className="hover:text-teal-900">×</button>
                     </span>
                   )}
                   {dateTo && (
                     <span className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded-full text-xs">
-                      To: {dateTo}
+                      Data To: {dateTo}
                       <button onClick={() => setDateTo('')} className="hover:text-teal-900">×</button>
                     </span>
                   )}
@@ -950,111 +1007,248 @@ const DownloadReports = () => {
         )}
       </div>
 
-     
-
-      {/* Search Bar */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
-        <div className="relative">
-          <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search reports by name, type, or device..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
-          />
-        </div>
+      {/* Report Type Info Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {reportTypes.map(type => (
+          <div key={type.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600">
+                {type.icon}
+              </div>
+              <h3 className="font-semibold text-gray-800">{type.name}</h3>
+            </div>
+            <p className="text-sm text-gray-500">{type.description}</p>
+          </div>
+        ))}
       </div>
 
-      {/* Generated Reports List */}
+      {/* Reports List Section with Search, Date Filters, and Pagination */}
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
         <div className="px-4 sm:px-6 py-4 border-b border-gray-200 bg-gray-50">
           <h2 className="text-lg font-semibold text-gray-800">Generated Reports</h2>
-          <p className="text-sm text-gray-500 mt-1">{filteredReports.length} reports available</p>
+          <p className="text-sm text-gray-500 mt-1">{filteredAndSearchedReports.length} reports available</p>
         </div>
 
-        {filteredReports.length === 0 ? (
+        {/* Reports Filters - Search and Date Range */}
+        <div className="p-4 border-b border-gray-200 bg-white">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+           
+
+            {/* Report Date From Filter */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Report Date From</label>
+              <input
+                type="date"
+                value={reportDateFrom}
+                onChange={(e) => {
+                  setReportDateFrom(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+              />
+            </div>
+
+            {/* Report Date To Filter */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Report Date To</label>
+              <input
+                type="date"
+                value={reportDateTo}
+                onChange={(e) => {
+                  setReportDateTo(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+              />
+            </div>
+          </div>
+          
+          {/* Reset Reports Filters Button */}
+          {(searchTerm || reportDateFrom || reportDateTo) && (
+            <div className="mt-3">
+              <button
+                onClick={handleResetReportFilters}
+                className="text-xs text-purple-600 hover:text-purple-700 font-medium"
+              >
+                Clear all report filters
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Reports Table */}
+        {filteredAndSearchedReports.length === 0 ? (
           <div className="p-12 text-center">
             <FaFileAlt className="text-6xl text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-600 mb-2">No Reports Found</h3>
             <p className="text-gray-400">Generate your first report using the form above</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px]">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500">Report Name</th>
-                  <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500">Type</th>
-                  <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500">Format</th>
-                  <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500">Devices</th>
-                  <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500">Date</th>
-                  <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500">Size</th>
-                  <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredReports.map((report) => (
-                  <tr key={report.id} className="hover:bg-gray-50 transition-all">
-                    <td className="px-4 sm:px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <FaFileAlt className="text-purple-500" />
-                        <span className="text-sm font-medium text-gray-800">{report.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 sm:px-6 py-4">
-                      <span className="capitalize text-sm text-gray-600">{report.type}</span>
-                    </td>
-                    <td className="px-4 sm:px-6 py-4">
-                      <div className="flex items-center gap-1">
-                        <span className={getFormatColor(report.format)}>
-                          {getFormatIcon(report.format)}
-                        </span>
-                        <span className="text-sm text-gray-600 uppercase">{report.format}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 sm:px-6 py-4">
-                      <div className="flex flex-wrap gap-1">
-                        {report.zones.slice(0, 2).map(device => (
-                          <span key={device} className="text-xs px-1.5 py-0.5 bg-gray-100 rounded truncate max-w-[100px]">{device}</span>
-                        ))}
-                        {report.zones.length > 2 && (
-                          <span className="text-xs text-gray-400">+{report.zones.length - 2}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-600">{report.date}</td>
-                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-500">{report.size}</td>
-                    <td className="px-4 sm:px-6 py-4">
-                      <div className="flex gap-2">
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[800px]">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500">Report Name</th>
+                    <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500">Type</th>
+                    <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500">Format</th>
+                    <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500">Devices</th>
+                    <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500">Date</th>
+                    <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500">Size</th>
+                    <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {currentReports.map((report) => (
+                    <tr key={report.id} className="hover:bg-gray-50 transition-all">
+                      <td className="px-4 sm:px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <FaFileAlt className="text-purple-500" />
+                          <span className="text-sm font-medium text-gray-800">{report.name}</span>
+                        </div>
+                       </td>
+                      <td className="px-4 sm:px-6 py-4">
+                        <span className="capitalize text-sm text-gray-600">{report.type}</span>
+                       </td>
+                      <td className="px-4 sm:px-6 py-4">
+                        <div className="flex items-center gap-1">
+                          <span className={getFormatColor(report.format)}>
+                            {getFormatIcon(report.format)}
+                          </span>
+                          <span className="text-sm text-gray-600 uppercase">{report.format}</span>
+                        </div>
+                       </td>
+                      <td className="px-4 sm:px-6 py-4">
+                        <div className="flex flex-wrap gap-1">
+                          {report.devices?.slice(0, 2).map(device => (
+                            <span key={device} className="text-xs px-1.5 py-0.5 bg-gray-100 rounded truncate max-w-[100px]">{device}</span>
+                          ))}
+                          {report.devices?.length > 2 && (
+                            <span className="text-xs text-gray-400">+{report.devices.length - 2}</span>
+                          )}
+                        </div>
+                       </td>
+                      <td className="px-4 sm:px-6 py-4 text-sm text-gray-600">{report.date}</td>
+                      <td className="px-4 sm:px-6 py-4 text-sm text-gray-500">{report.size}</td>
+                      <td className="px-4 sm:px-6 py-4">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handlePreview(report)}
+                            className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
+                            title="Preview"
+                          >
+                            <FaEye />
+                          </button>
+                          <button
+                            onClick={() => handleDownload(report)}
+                            className="p-1.5 text-green-500 hover:bg-green-50 rounded-lg transition-all"
+                            title="Download"
+                          >
+                            <FaDownload />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(report.id)}
+                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                            title="Delete"
+                          >
+                            <FaTimes />
+                          </button>
+                        </div>
+                       </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="px-4 sm:px-6 py-4 border-t border-gray-200 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <div className="text-sm text-gray-500">
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredAndSearchedReports.length)} of {filteredAndSearchedReports.length} reports
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => goToPage(1)}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white transition-all"
+                    title="First Page"
+                  >
+                    <FaAngleDoubleLeft className="text-sm" />
+                  </button>
+                  <button
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white transition-all"
+                    title="Previous Page"
+                  >
+                    <FaChevronLeft className="text-sm" />
+                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      
+                      return (
                         <button
-                          onClick={() => handlePreview(report)}
-                          className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
-                          title="Preview"
+                          key={pageNum}
+                          onClick={() => goToPage(pageNum)}
+                          className={`w-8 h-8 rounded-lg text-sm transition-all ${
+                            currentPage === pageNum
+                              ? 'bg-purple-500 text-white'
+                              : 'border border-gray-300 hover:bg-white'
+                          }`}
                         >
-                          <FaEye />
+                          {pageNum}
                         </button>
-                        <button
-                          onClick={() => handleDownload(report)}
-                          className="p-1.5 text-green-500 hover:bg-green-50 rounded-lg transition-all"
-                          title="Download"
-                        >
-                          <FaDownload />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(report.id)}
-                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                          title="Delete"
-                        >
-                          <FaTimes />
-                        </button>
-                      </div>
-                     </td>
-                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      );
+                    })}
+                  </div>
+                  
+                  <button
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white transition-all"
+                    title="Next Page"
+                  >
+                    <FaChevronRight className="text-sm" />
+                  </button>
+                  <button
+                    onClick={() => goToPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white transition-all"
+                    title="Last Page"
+                  >
+                    <FaAngleDoubleRight className="text-sm" />
+                  </button>
+                  
+                  {/* Items per page selector */}
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="ml-2 px-2 py-1 rounded-lg border border-gray-300 text-sm"
+                  >
+                    <option value={5}>5 per page</option>
+                    <option value={10}>10 per page</option>
+                    <option value={25}>25 per page</option>
+                    <option value={50}>50 per page</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -1094,7 +1288,7 @@ const DownloadReports = () => {
                   </div>
                   <div className="flex justify-between py-2 border-b">
                     <span className="text-gray-500">Devices Covered:</span>
-                    <span className="font-medium">{selectedReport.zones.length} devices</span>
+                    <span className="font-medium">{selectedReport.devices?.length || 0} devices</span>
                   </div>
                   <div className="flex justify-between py-2 border-b">
                     <span className="text-gray-500">File Size:</span>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaBars, FaFileDownload, FaUserCircle, FaBuilding, FaBell, FaSearch } from 'react-icons/fa';
+import { FaBars, FaFileDownload, FaUserCircle, FaBuilding } from 'react-icons/fa';
 
 const Header = ({ setMobileMenuOpen, activeMenu }) => {
   const getTitle = () => {
@@ -44,17 +44,7 @@ const Header = ({ setMobileMenuOpen, activeMenu }) => {
         </div>
         
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-          {/* Search */}
-          <div className="hidden md:flex items-center bg-gray-100 rounded-lg px-3 py-1.5">
-            <FaSearch className="text-gray-400 text-sm" />
-            <input type="text" placeholder="Search..." className="bg-transparent border-none outline-none text-sm px-2 w-48" />
-          </div>
           
-          {/* Notification */}
-          <button className="relative p-2 rounded-lg hover:bg-gray-100 transition-all">
-            <FaBell className="text-gray-600 text-lg" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
           
           {/* Export Button */}
           <button className="px-3 py-1.5 text-xs sm:text-sm bg-white rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-all flex items-center gap-1">
