@@ -69,9 +69,9 @@ const Dashboard = () => {
   
   // Multi-select parameters
   const parameters = [
-    { id: 'temperature', name: 'Temperature', icon: <FaThermometerHalf />, color: 'orange', dataKey: 'temperature', unit: '°C', comingSoon: false },
-    { id: 'humidity', name: 'Relative Humidity', icon: <FaTint />, color: 'blue', dataKey: 'humidity', unit: '%', comingSoon: false },
-    { id: 'voc', name: 'TVOC', icon: <FaFlask />, color: 'green', dataKey: 'voc', unit: 'ppb', comingSoon: false },
+    { id: 'temperature', name: 'Temperature', icon: <FaThermometerHalf />, color: 'orange', dataKey: 'temperature', unit: '°C', comingSoon: false, yAxisDomain: [0, 100] },
+    { id: 'humidity', name: 'Relative Humidity', icon: <FaTint />, color: 'blue', dataKey: 'humidity', unit: '%', comingSoon: false, yAxisDomain: [0, 100] },
+    { id: 'voc', name: 'TVOC', icon: <FaFlask />, color: 'green', dataKey: 'voc', unit: 'ppb', comingSoon: false, yAxisDomain: [0, 50000] },
     { id: 'airVelocity', name: 'Air Velocity', icon: <FaWind />, color: 'cyan', dataKey: 'airVelocity', unit: 'm/s', comingSoon: true },
     { id: 'pm', name: 'PM - 2.5/10', icon: <FaSmog />, color: 'red', dataKey: 'pm', unit: 'µg/m³', comingSoon: true },
     { id: 'co2', name: 'CO2', icon: <FaFire />, color: 'purple', dataKey: 'co2', unit: 'ppm', comingSoon: true },
@@ -769,6 +769,16 @@ const Dashboard = () => {
                       );
                     }
                     
+                    // Set Y-axis domain based on parameter type
+                    let yAxisDomain = ['auto', 'auto'];
+                    if (paramId === 'temperature') {
+                      yAxisDomain = [0, 100];
+                    } else if (paramId === 'humidity') {
+                      yAxisDomain = [0, 100];
+                    } else if (paramId === 'voc') {
+                      yAxisDomain = [0, 50000];
+                    }
+                    
                     return (
                       <div key={paramId} className="space-y-3">
                         <div className="flex justify-between items-center flex-wrap gap-3">
@@ -813,7 +823,7 @@ const Dashboard = () => {
                             <YAxis 
                               tick={{ fontSize: 11 }}
                               label={{ value: param.unit, angle: -90, position: 'insideLeft' }}
-                              domain={['auto', 'auto']}
+                              domain={yAxisDomain}
                             />
                             <Tooltip 
                               labelFormatter={(label) => `Time: ${label}`}
@@ -897,11 +907,11 @@ const Dashboard = () => {
                 <tr>
                   <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
                     No devices found. Please add devices from the "Add Device" page.
-                  </td>
+                   </td>
                 </tr>
               )}
             </tbody>
-          </table>
+           </table>
         </div>
         {error && (
           <div className="p-4 bg-red-50 border-t border-red-200">
