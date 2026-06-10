@@ -70,28 +70,32 @@ const DevicesManagement = () => {
     }
   };
 
-  const fetchExternalDevices = async () => {
-    try {
-      const response = await fetch('https://sensor-six-iota.vercel.app/api/sensors');
-      if (!response.ok) throw new Error('Failed to fetch external devices');
-      const data = await response.json();
-      
-      // Group by device_id and get latest reading for each
-      const deviceMap = new Map();
-      data.forEach(reading => {
-        const existing = deviceMap.get(reading.device_id);
-        if (!existing || new Date(reading.created_at) > new Date(existing.created_at)) {
-          deviceMap.set(reading.device_id, reading);
-        }
-      });
-      
-      const uniqueDevices = Array.from(deviceMap.values());
-      setExternalDevices(uniqueDevices);
-    } catch (err) {
-      console.error('Error fetching external devices:', err);
-      setError('Failed to fetch external sensor data');
-    }
-  };
+ const fetchExternalDevices = async () => {
+  try {
+    const response = await fetch('https://sensor-six-iota.vercel.app/api/sensors');
+    if (!response.ok) throw new Error('Failed to fetch external devices');
+    const result = await response.json();
+    
+    // The API returns { success: true, data: [...], pagination: {...} }
+    // So we need to access result.data instead of result directly
+    const data = result.data || [];
+    
+    // Group by device_id and get latest reading for each
+    const deviceMap = new Map();
+    data.forEach(reading => {
+      const existing = deviceMap.get(reading.device_id);
+      if (!existing || new Date(reading.created_at) > new Date(existing.created_at)) {
+        deviceMap.set(reading.device_id, reading);
+      }
+    });
+    
+    const uniqueDevices = Array.from(deviceMap.values());
+    setExternalDevices(uniqueDevices);
+  } catch (err) {
+    console.error('Error fetching external devices:', err);
+    setError('Failed to fetch external sensor data');
+  }
+};
 
   const fetchZones = async () => {
     try {
@@ -112,35 +116,39 @@ const DevicesManagement = () => {
   };
 
   const handleSyncExternalDevices = async () => {
-    setSyncing(true);
-    setSuccess('');
-    setError('');
+  setSyncing(true);
+  setSuccess('');
+  setError('');
+  
+  try {
+    const response = await fetch('https://sensor-six-iota.vercel.app/api/sensors');
+    const result = await response.json();
     
-    try {
-      const externalData = await fetch('https://sensor-six-iota.vercel.app/api/sensors');
-      const sensors = await externalData.json();
-      
-      // Group by device_id
-      const deviceMap = new Map();
-      sensors.forEach(reading => {
-        const existing = deviceMap.get(reading.device_id);
-        if (!existing || new Date(reading.created_at) > new Date(existing.created_at)) {
-          deviceMap.set(reading.device_id, reading);
-        }
-      });
-      
-      const uniqueDevices = Array.from(deviceMap.values());
-      setExternalDevices(uniqueDevices);
-      setSuccess(`Synced ${uniqueDevices.length} devices from external source`);
-      
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      setError('Failed to sync external devices');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setSyncing(false);
-    }
-  };
+    // Access the data array from the response
+    const sensors = result.data || [];
+    
+    // Group by device_id
+    const deviceMap = new Map();
+    sensors.forEach(reading => {
+      const existing = deviceMap.get(reading.device_id);
+      if (!existing || new Date(reading.created_at) > new Date(existing.created_at)) {
+        deviceMap.set(reading.device_id, reading);
+      }
+    });
+    
+    const uniqueDevices = Array.from(deviceMap.values());
+    setExternalDevices(uniqueDevices);
+    setSuccess(`Synced ${uniqueDevices.length} devices from external source`);
+    
+    setTimeout(() => setSuccess(''), 3000);
+  } catch (err) {
+    console.error('Sync error:', err);
+    setError('Failed to sync external devices');
+    setTimeout(() => setError(''), 3000);
+  } finally {
+    setSyncing(false);
+  }
+};
 
   const handleAssignDevice = async () => {
     if (!selectedExternalDevice) return;
