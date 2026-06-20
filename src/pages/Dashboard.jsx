@@ -183,13 +183,13 @@ const Dashboard = () => {
   const fetchSensorData = async () => {
     setLoading(true);
     try {
-      // Request 100 records from last 8 hours
-      const response = await fetch('https://sensor-six-iota.vercel.app/api/sensors?limit=100&hours=8');
+      // Updated API endpoint - new API doesn't support hours parameter
+      const response = await fetch('https://new-sensor-api-9mub.vercel.app/api/device');
       if (!response.ok) throw new Error('Failed to fetch sensor data');
       const result = await response.json();
       
-      // Handle both old and new API response formats
-      const data = result.data || result;
+      // New API response format: { success: true, data: [...], device_info: {...}, pagination: {...} }
+      const data = result.data || [];
       
       // Store pagination info if available
       if (result.pagination) {
@@ -204,7 +204,7 @@ const Dashboard = () => {
       } else {
         console.log('📊 API Response:', {
           recordsReceived: data.length,
-          note: 'Using legacy API format'
+          note: 'Using new API format'
         });
       }
       
@@ -249,11 +249,12 @@ const Dashboard = () => {
       let hasMore = true;
       let pageCount = 0;
       
+      // New API might support pagination via skip parameter
       while (hasMore && pageCount < 5) { // Limit to 5 pages max (500 records)
-        const response = await fetch(`https://sensor-six-iota.vercel.app/api/sensors?limit=${limit}&skip=${skip}&hours=8`);
+        const response = await fetch(`https://new-sensor-api-9mub.vercel.app/api/device?limit=${limit}&skip=${skip}`);
         if (!response.ok) throw new Error('Failed to fetch sensor data');
         const result = await response.json();
-        const data = result.data || result;
+        const data = result.data || [];
         
         allData = [...allData, ...data];
         hasMore = result.pagination?.hasMore || false;
@@ -300,7 +301,6 @@ const Dashboard = () => {
   useEffect(() => {
     fetchDynamicData();
     fetchSensorData(); // Use this for 100 records
-    // fetchAllSensorDataPaginated(); // Uncomment if you need more than 100 records
     
     const interval = setInterval(fetchSensorData, 30000);
     return () => clearInterval(interval);
@@ -454,7 +454,7 @@ const Dashboard = () => {
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
           <FaSpinner className="animate-spin text-5xl text-purple-500 mx-auto mb-4" />
-          <p className="text-gray-600">Loading sensor data from last 8 hours...</p>
+          <p className="text-gray-600">Loading sensor data from external API...</p>
           {paginationInfo.total && (
             <p className="text-xs text-gray-400 mt-2">Fetching up to 100 records</p>
           )}
@@ -469,7 +469,7 @@ const Dashboard = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Sensor Monitoring Dashboard</h1>
-          <p className="text-gray-500 mt-1">Real-time environmental data from your registered devices (Last 8 Hours)</p>
+          <p className="text-gray-500 mt-1">Real-time environmental data from your registered devices</p>
           <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
             <span><FaClock className="inline mr-1" /> Last update: {lastUpdate.toLocaleTimeString()}</span>
             <span>• {filteredDevices.length} devices</span>
@@ -617,7 +617,7 @@ const Dashboard = () => {
                 </div>
               </div>
               <p className="text-xs text-gray-400 mt-3">
-                Note: Data is automatically filtered to last 8 hours from current time
+                Note: Data is fetched from the external sensor API
               </p>
             </div>
           )}
@@ -731,7 +731,7 @@ const Dashboard = () => {
                         {device.deviceId}
                       </h3>
                       <p className="text-xs text-gray-500 mt-1">
-                        {device.plantName} → {device.zoneName} • {readings.length} readings (Last 8 hours)
+                        {device.plantName} → {device.zoneName} • {readings.length} readings
                       </p>
                     </div>
                     {hasData && readings[readings.length - 1] && (
@@ -764,7 +764,7 @@ const Dashboard = () => {
                       return (
                         <div key={paramId} className="bg-gray-50 rounded-xl p-8 text-center">
                           <h4 className="text-lg font-semibold text-gray-700">{param.name}</h4>
-                          <p className="text-gray-500">No data available for this device in the last 8 hours</p>
+                          <p className="text-gray-500">No data available for this device</p>
                         </div>
                       );
                     }
@@ -786,7 +786,7 @@ const Dashboard = () => {
                             <span className={getParameterColorClass(param.color)}>
                               {param.icon}
                             </span>
-                            <h4 className="font-semibold text-gray-800">{param.name} Trend (Last 8 Hours)</h4>
+                            <h4 className="font-semibold text-gray-800">{param.name} Trend</h4>
                             {isAlert && (
                               <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full flex items-center gap-1">
                                 <FaExclamationTriangle className="text-xs" /> Alert
@@ -801,7 +801,7 @@ const Dashboard = () => {
                               </span>
                             </div>
                             <div>
-                              <span className="text-gray-500">Average (8h):</span>
+                              <span className="text-gray-500">Average:</span>
                               <span className="font-semibold ml-1 text-gray-800">
                                 {avgValue !== null ? `${avgValue}${param.unit}` : '--'}
                               </span>
@@ -818,7 +818,7 @@ const Dashboard = () => {
                               angle={-45}
                               textAnchor="end"
                               height={60}
-                              label={{ value: 'Time (Last 8 Hours)', position: 'insideBottom', offset: -10 }}
+                              label={{ value: 'Time', position: 'insideBottom', offset: -10 }}
                             />
                             <YAxis 
                               tick={{ fontSize: 11 }}
@@ -857,7 +857,7 @@ const Dashboard = () => {
         <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
           <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
             <FaMicrochip className="text-purple-500" />
-            Recent Sensor Readings (Last 8 Hours)
+            Recent Sensor Readings
           </h3>
           <p className="text-xs text-gray-500 mt-1">
             Latest records from {filteredDevices.length} device{filteredDevices.length !== 1 ? 's' : ''}
@@ -907,11 +907,11 @@ const Dashboard = () => {
                 <tr>
                   <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
                     No devices found. Please add devices from the "Add Device" page.
-                   </td>
+                  </td>
                 </tr>
               )}
             </tbody>
-           </table>
+          </table>
         </div>
         {error && (
           <div className="p-4 bg-red-50 border-t border-red-200">

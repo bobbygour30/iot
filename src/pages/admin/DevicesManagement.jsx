@@ -70,32 +70,33 @@ const DevicesManagement = () => {
     }
   };
 
- const fetchExternalDevices = async () => {
-  try {
-    const response = await fetch('https://sensor-six-iota.vercel.app/api/sensors');
-    if (!response.ok) throw new Error('Failed to fetch external devices');
-    const result = await response.json();
-    
-    // The API returns { success: true, data: [...], pagination: {...} }
-    // So we need to access result.data instead of result directly
-    const data = result.data || [];
-    
-    // Group by device_id and get latest reading for each
-    const deviceMap = new Map();
-    data.forEach(reading => {
-      const existing = deviceMap.get(reading.device_id);
-      if (!existing || new Date(reading.created_at) > new Date(existing.created_at)) {
-        deviceMap.set(reading.device_id, reading);
-      }
-    });
-    
-    const uniqueDevices = Array.from(deviceMap.values());
-    setExternalDevices(uniqueDevices);
-  } catch (err) {
-    console.error('Error fetching external devices:', err);
-    setError('Failed to fetch external sensor data');
-  }
-};
+  const fetchExternalDevices = async () => {
+    try {
+      // Updated API endpoint
+      const response = await fetch('https://new-sensor-api-9mub.vercel.app/api/device');
+      if (!response.ok) throw new Error('Failed to fetch external devices');
+      const result = await response.json();
+      
+      // The new API returns { success: true, data: [...], device_info: {...}, pagination: {...} }
+      // So we need to access result.data
+      const data = result.data || [];
+      
+      // Group by device_id and get latest reading for each
+      const deviceMap = new Map();
+      data.forEach(reading => {
+        const existing = deviceMap.get(reading.device_id);
+        if (!existing || new Date(reading.created_at) > new Date(existing.created_at)) {
+          deviceMap.set(reading.device_id, reading);
+        }
+      });
+      
+      const uniqueDevices = Array.from(deviceMap.values());
+      setExternalDevices(uniqueDevices);
+    } catch (err) {
+      console.error('Error fetching external devices:', err);
+      setError('Failed to fetch external sensor data');
+    }
+  };
 
   const fetchZones = async () => {
     try {
@@ -116,39 +117,40 @@ const DevicesManagement = () => {
   };
 
   const handleSyncExternalDevices = async () => {
-  setSyncing(true);
-  setSuccess('');
-  setError('');
-  
-  try {
-    const response = await fetch('https://sensor-six-iota.vercel.app/api/sensors');
-    const result = await response.json();
+    setSyncing(true);
+    setSuccess('');
+    setError('');
     
-    // Access the data array from the response
-    const sensors = result.data || [];
-    
-    // Group by device_id
-    const deviceMap = new Map();
-    sensors.forEach(reading => {
-      const existing = deviceMap.get(reading.device_id);
-      if (!existing || new Date(reading.created_at) > new Date(existing.created_at)) {
-        deviceMap.set(reading.device_id, reading);
-      }
-    });
-    
-    const uniqueDevices = Array.from(deviceMap.values());
-    setExternalDevices(uniqueDevices);
-    setSuccess(`Synced ${uniqueDevices.length} devices from external source`);
-    
-    setTimeout(() => setSuccess(''), 3000);
-  } catch (err) {
-    console.error('Sync error:', err);
-    setError('Failed to sync external devices');
-    setTimeout(() => setError(''), 3000);
-  } finally {
-    setSyncing(false);
-  }
-};
+    try {
+      // Updated API endpoint
+      const response = await fetch('https://new-sensor-api-9mub.vercel.app/api/device');
+      const result = await response.json();
+      
+      // Access the data array from the response
+      const sensors = result.data || [];
+      
+      // Group by device_id
+      const deviceMap = new Map();
+      sensors.forEach(reading => {
+        const existing = deviceMap.get(reading.device_id);
+        if (!existing || new Date(reading.created_at) > new Date(existing.created_at)) {
+          deviceMap.set(reading.device_id, reading);
+        }
+      });
+      
+      const uniqueDevices = Array.from(deviceMap.values());
+      setExternalDevices(uniqueDevices);
+      setSuccess(`Synced ${uniqueDevices.length} devices from external source`);
+      
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Sync error:', err);
+      setError('Failed to sync external devices');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const handleAssignDevice = async () => {
     if (!selectedExternalDevice) return;
@@ -299,7 +301,7 @@ const DevicesManagement = () => {
               <FaMicrochip className="text-blue-500" />
               Available External Sensors ({externalDevices.length})
             </h2>
-            <span className="text-xs text-gray-500">From sensor-six API</span>
+            <span className="text-xs text-gray-500">From new-sensor-api</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {externalDevices.slice(0, 6).map((device) => (

@@ -96,10 +96,11 @@ const AddDevice = () => {
   // Check if device exists in external API
   const checkDeviceInExternalAPI = async (deviceId) => {
     try {
-      const response = await fetch('https://sensor-six-iota.vercel.app/api/sensors?limit=100&hours=24');
+      // Updated API endpoint
+      const response = await fetch('https://new-sensor-api-9mub.vercel.app/api/device');
       if (!response.ok) throw new Error('Failed to fetch external devices');
       const result = await response.json();
-      const data = result.data || result;
+      const data = result.data || [];
       
       // Find the device with matching ID
       const device = data.find(d => d.device_id === deviceId);
