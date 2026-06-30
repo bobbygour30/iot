@@ -72,11 +72,12 @@ const Dashboard = () => {
     { id: 'temperature', name: 'Temperature', icon: <FaThermometerHalf />, color: 'orange', dataKey: 'temperature', unit: '°C', comingSoon: false, yAxisDomain: [0, 100] },
     { id: 'humidity', name: 'Relative Humidity', icon: <FaTint />, color: 'blue', dataKey: 'humidity', unit: '%', comingSoon: false, yAxisDomain: [0, 100] },
     { id: 'voc', name: 'TVOC', icon: <FaFlask />, color: 'green', dataKey: 'voc', unit: 'ppb', comingSoon: false, yAxisDomain: [0, 50000] },
-    { id: 'airVelocity', name: 'Air Velocity', icon: <FaWind />, color: 'cyan', dataKey: 'airVelocity', unit: 'm/s', comingSoon: true },
-    { id: 'pm', name: 'PM - 2.5/10', icon: <FaSmog />, color: 'red', dataKey: 'pm', unit: 'µg/m³', comingSoon: true },
-    { id: 'co2', name: 'CO2', icon: <FaFire />, color: 'purple', dataKey: 'co2', unit: 'ppm', comingSoon: true },
-    { id: 'lux', name: 'LUX', icon: <FaMoon />, color: 'yellow', dataKey: 'lux', unit: 'lx', comingSoon: true },
-    { id: 'noise', name: 'Noise (AV/PEAK)', icon: <FaVolumeUp />, color: 'pink', dataKey: 'noise', unit: 'dB', comingSoon: true }
+    { id: 'pm_2_5', name: 'PM 2.5', icon: <FaSmog />, color: 'red', dataKey: 'pm_2_5', unit: 'µg/m³', comingSoon: false, yAxisDomain: [0, 500] },
+    { id: 'pm_10', name: 'PM 10', icon: <FaSmog />, color: 'orange', dataKey: 'pm_10', unit: 'µg/m³', comingSoon: false, yAxisDomain: [0, 500] },
+    { id: 'co2', name: 'CO2', icon: <FaFire />, color: 'purple', dataKey: 'co2', unit: 'ppm', comingSoon: false, yAxisDomain: [0, 5000] },
+    { id: 'lux', name: 'LUX', icon: <FaMoon />, color: 'yellow', dataKey: 'lux', unit: 'lx', comingSoon: false, yAxisDomain: [0, 1000] },
+    { id: 'noise_av', name: 'Noise AV', icon: <FaVolumeUp />, color: 'pink', dataKey: 'noise_av', unit: 'dB', comingSoon: false, yAxisDomain: [0, 100] },
+    { id: 'noise_peak', name: 'Noise Peak', icon: <FaVolumeUp />, color: 'red', dataKey: 'noise_peak', unit: 'dB', comingSoon: false, yAxisDomain: [0, 100] }
   ];
 
   const [selectedParameters, setSelectedParameters] = useState(['temperature', 'humidity', 'voc']);
@@ -208,7 +209,7 @@ const Dashboard = () => {
         });
       }
       
-      // Group readings by device_id
+      // Group readings by device_id - NOW INCLUDING ALL PARAMETERS
       const readingsByDevice = {};
       data.forEach(reading => {
         if (!readingsByDevice[reading.device_id]) {
@@ -218,6 +219,12 @@ const Dashboard = () => {
           temperature: reading.temperature,
           humidity: reading.relative_humidity,
           voc: reading.tvoc,
+          pm_2_5: reading.pm_2_5,
+          pm_10: reading.pm_10,
+          co2: reading.co2,
+          lux: reading.lux,
+          noise_av: reading.noise_av,
+          noise_peak: reading.noise_peak,
           timestamp: reading.created_at
         });
       });
@@ -267,7 +274,7 @@ const Dashboard = () => {
       
       console.log(`📊 Fetched ${allData.length} total records from ${pageCount} pages`);
       
-      // Group readings by device_id
+      // Group readings by device_id - NOW INCLUDING ALL PARAMETERS
       const readingsByDevice = {};
       allData.forEach(reading => {
         if (!readingsByDevice[reading.device_id]) {
@@ -277,6 +284,12 @@ const Dashboard = () => {
           temperature: reading.temperature,
           humidity: reading.relative_humidity,
           voc: reading.tvoc,
+          pm_2_5: reading.pm_2_5,
+          pm_10: reading.pm_10,
+          co2: reading.co2,
+          lux: reading.lux,
+          noise_av: reading.noise_av,
+          noise_peak: reading.noise_peak,
           timestamp: reading.created_at
         });
       });
@@ -382,6 +395,9 @@ const Dashboard = () => {
   const getAlertStatus = (value, type) => {
     if (type === 'temperature') return value > 34;
     if (type === 'voc') return value > 35000;
+    if (type === 'pm_2_5') return value > 100;
+    if (type === 'pm_10') return value > 150;
+    if (type === 'co2') return value > 2000;
     return false;
   };
 
@@ -400,6 +416,12 @@ const Dashboard = () => {
             'Temperature (°C)': reading.temperature,
             'Humidity (%)': reading.humidity,
             'VOC (ppb)': reading.voc,
+            'PM 2.5 (µg/m³)': reading.pm_2_5,
+            'PM 10 (µg/m³)': reading.pm_10,
+            'CO2 (ppm)': reading.co2,
+            'LUX (lx)': reading.lux,
+            'Noise AV (dB)': reading.noise_av,
+            'Noise Peak (dB)': reading.noise_peak,
             'Timestamp': new Date(reading.timestamp).toLocaleString()
           });
         });
@@ -769,15 +791,23 @@ const Dashboard = () => {
                       );
                     }
                     
-                    // Set Y-axis domain based on parameter type
-                    let yAxisDomain = ['auto', 'auto'];
-                    if (paramId === 'temperature') {
-                      yAxisDomain = [0, 100];
-                    } else if (paramId === 'humidity') {
-                      yAxisDomain = [0, 100];
-                    } else if (paramId === 'voc') {
-                      yAxisDomain = [0, 50000];
-                    }
+                    // Use parameter-specific Y-axis domain
+                    const yAxisDomain = param.yAxisDomain || ['auto', 'auto'];
+                    
+                    // Get color for the line
+                    const getLineColor = (color) => {
+                      const colorMap = {
+                        'orange': '#f97316',
+                        'blue': '#3b82f6',
+                        'green': '#10b981',
+                        'cyan': '#06b6d4',
+                        'red': '#ef4444',
+                        'purple': '#8b5cf6',
+                        'yellow': '#eab308',
+                        'pink': '#ec4899'
+                      };
+                      return colorMap[color] || '#6b7280';
+                    };
                     
                     return (
                       <div key={paramId} className="space-y-3">
@@ -797,7 +827,7 @@ const Dashboard = () => {
                             <div>
                               <span className="text-gray-500">Current:</span>
                               <span className="font-semibold ml-1 text-gray-800">
-                                {currentValue !== null ? `${currentValue}${param.unit}` : '--'}
+                                {currentValue !== null && currentValue !== undefined ? `${currentValue}${param.unit}` : '--'}
                               </span>
                             </div>
                             <div>
@@ -833,7 +863,7 @@ const Dashboard = () => {
                             <Line 
                               type="monotone" 
                               dataKey="value" 
-                              stroke={param.color === 'orange' ? '#f97316' : param.color === 'blue' ? '#3b82f6' : '#10b981'} 
+                              stroke={getLineColor(param.color)} 
                               strokeWidth={2.5} 
                               dot={{ r: 2 }} 
                               activeDot={{ r: 6 }} 
@@ -873,6 +903,9 @@ const Dashboard = () => {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Temperature</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Humidity</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">VOC</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">PM 2.5</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">PM 10</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">CO2</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Time</th>
               </tr>
             </thead>
@@ -897,6 +930,21 @@ const Dashboard = () => {
                         {latestReading?.voc || '--'}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={latestReading?.pm_2_5 > 100 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
+                        {latestReading?.pm_2_5 || '--'} µg/m³
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={latestReading?.pm_10 > 150 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
+                        {latestReading?.pm_10 || '--'} µg/m³
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={latestReading?.co2 > 2000 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
+                        {latestReading?.co2 || '--'} ppm
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-xs text-gray-500">
                       {latestReading?.timestamp ? new Date(latestReading.timestamp).toLocaleString() : 'No data'}
                     </td>
@@ -905,7 +953,7 @@ const Dashboard = () => {
               })}
               {filteredDevices.length === 0 && (
                 <tr>
-                  <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan="10" className="px-4 py-8 text-center text-gray-500">
                     No devices found. Please add devices from the "Add Device" page.
                   </td>
                 </tr>
