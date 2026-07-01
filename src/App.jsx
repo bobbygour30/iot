@@ -20,6 +20,7 @@ import UsersManagement from './pages/admin/UsersManagement';
 import ZonesManagement from './pages/admin/ZonesManagement';
 import PlantsManagement from './pages/admin/PlantsManagement';
 import DevicesManagement from './pages/admin/DevicesManagement';
+import Indices from './pages/Indices';
 
 const App = () => {
   return (
@@ -45,6 +46,7 @@ const App = () => {
 <Route path="create-plant" element={<CreatePlant />} />
 <Route path="create-zone" element={<CreateZoneOnly />} />
 <Route path="add-device" element={<AddDevice />} />
+<Route path="indices" element={<Indices />} />
             {/* <Route path="create-zone" element={<CreateZone />} /> */}
             <Route path="reports" element={<Reports />} />
           </Route>

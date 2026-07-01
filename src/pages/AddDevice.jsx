@@ -9,7 +9,8 @@ import {
   FaCheckCircle,
   FaTimesCircle,
   FaSearch,
-  FaExclamationTriangle
+  FaExclamationTriangle,
+  FaSync
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -19,6 +20,7 @@ const AddDevice = () => {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [validating, setValidating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   
   // Plants and Zones
   const [plants, setPlants] = useState([]);

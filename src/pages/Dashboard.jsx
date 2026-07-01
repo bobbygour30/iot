@@ -471,6 +471,29 @@ const Dashboard = () => {
     setDateTo('');
   };
 
+  // Custom Tooltip for charts
+  const CustomTooltip = ({ active, payload, label, deviceInfo }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200 min-w-[180px]">
+          <div className="text-xs text-gray-500 mb-1">{deviceInfo?.plantName} → {deviceInfo?.zoneName}</div>
+          <div className="text-sm font-semibold text-gray-800 mb-1">{deviceInfo?.deviceId}</div>
+          <div className="text-xs text-gray-500 mb-2">{label}</div>
+          {payload.map((entry, index) => (
+            <div key={index} className="flex items-center justify-between gap-4 text-sm">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                <span className="text-gray-600">{entry.name}:</span>
+              </span>
+              <span className="font-semibold text-gray-800">{entry.value} {entry.unit || ''}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
   if (loading && Object.keys(deviceReadings).length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
@@ -486,10 +509,11 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-3 sm:p-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
         <div>
+          <h1 className="text-xl font-bold text-gray-800">Sensor Monitoring Dashboard</h1>
           <p className="text-gray-500 text-sm mt-0.5">Real-time environmental data from your registered devices</p>
           <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
             <span><FaClock className="inline mr-1" /> Last update: {lastUpdate.toLocaleTimeString()}</span>
@@ -808,6 +832,13 @@ const Dashboard = () => {
                       return colorMap[color] || '#6b7280';
                     };
                     
+                    // Device info for tooltip
+                    const deviceInfo = {
+                      deviceId: device.deviceId,
+                      plantName: device.plantName,
+                      zoneName: device.zoneName
+                    };
+                    
                     return (
                       <div key={paramId} className="space-y-2">
                         <div className="flex justify-between items-center flex-wrap gap-2">
@@ -855,8 +886,8 @@ const Dashboard = () => {
                               domain={yAxisDomain}
                             />
                             <Tooltip 
-                              labelFormatter={(label) => `Time: ${label}`}
-                              formatter={(value, name) => [`${value} ${param.unit}`, param.name]}
+                              content={<CustomTooltip deviceInfo={deviceInfo} />}
+                              formatter={(value, name) => [`${value} ${param.unit}`, name]}
                             />
                             <Legend wrapperStyle={{ fontSize: '11px' }} />
                             <Line 
@@ -893,18 +924,12 @@ const Dashboard = () => {
           </p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px]">
+          <table className="w-full min-w-[600px]">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Device ID</th>
                 <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Plant</th>
                 <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Zone</th>
-                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Temperature</th>
-                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Humidity</th>
-                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">VOC</th>
-                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">PM 2.5</th>
-                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">PM 10</th>
-                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">CO2</th>
                 <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Time</th>
               </tr>
             </thead>
@@ -918,32 +943,6 @@ const Dashboard = () => {
                     <td className="px-3 py-2 text-[11px] font-mono text-gray-700">{device.deviceId}</td>
                     <td className="px-3 py-2 text-[11px] text-gray-600">{device.plantName}</td>
                     <td className="px-3 py-2 text-[11px] text-gray-600">{device.zoneName}</td>
-                    <td className="px-3 py-2 text-[11px]">
-                      <span className={latestReading?.temperature > 34 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
-                        {latestReading?.temperature || '--'}°C
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-gray-700">{latestReading?.humidity || '--'}%</td>
-                    <td className="px-3 py-2 text-[11px]">
-                      <span className={latestReading?.voc > 35000 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
-                        {latestReading?.voc || '--'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-[11px]">
-                      <span className={latestReading?.pm_2_5 > 100 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
-                        {latestReading?.pm_2_5 || '--'} µg/m³
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-[11px]">
-                      <span className={latestReading?.pm_10 > 150 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
-                        {latestReading?.pm_10 || '--'} µg/m³
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-[11px]">
-                      <span className={latestReading?.co2 > 2000 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
-                        {latestReading?.co2 || '--'} ppm
-                      </span>
-                    </td>
                     <td className="px-3 py-2 text-[10px] text-gray-500">
                       {latestReading?.timestamp ? new Date(latestReading.timestamp).toLocaleString() : 'No data'}
                     </td>
@@ -952,7 +951,7 @@ const Dashboard = () => {
               })}
               {filteredDevices.length === 0 && (
                 <tr>
-                  <td colSpan="10" className="px-3 py-4 text-center text-gray-500 text-sm">
+                  <td colSpan="4" className="px-3 py-4 text-center text-gray-500 text-sm">
                     No devices found. Please add devices from the "Add Device" page.
                   </td>
                 </tr>

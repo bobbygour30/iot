@@ -10,7 +10,8 @@ import {
   FaMicrochip,
   FaCog,
   FaChevronDown,
-  FaChevronUp
+  FaChevronUp,
+  FaChartLine // ✅ Already imported
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import assets from '../../assets/assets';
@@ -193,6 +194,27 @@ const Sidebar = ({ sidebarCollapsed, setSidebarCollapsed, isMobile, mobileMenuOp
               </div>
             )}
           </div>
+
+          {/* ✅ Indices Tab - Already added */}
+          <button
+            onClick={() => handleMenuClick('/dashboard/indices')}
+            className={`
+              w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200 mt-1
+              ${isActive('/dashboard/indices') 
+                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md' 
+                : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+              }
+              ${sidebarCollapsed ? 'justify-center' : ''}
+            `}
+            title={sidebarCollapsed ? 'Indices' : ''}
+          >
+            <span className={`text-base flex-shrink-0 ${isActive('/dashboard/indices') ? 'text-white' : 'text-slate-500'}`}>
+              <FaChartLine />
+            </span>
+            {!sidebarCollapsed && (
+              <span className="text-sm font-medium truncate">Indices</span>
+            )}
+          </button>
 
           {/* Reports */}
           <button
