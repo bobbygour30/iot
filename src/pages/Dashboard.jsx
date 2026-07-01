@@ -486,13 +486,12 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Sensor Monitoring Dashboard</h1>
-          <p className="text-gray-500 mt-1">Real-time environmental data from your registered devices</p>
-          <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+          <p className="text-gray-500 text-sm mt-0.5">Real-time environmental data from your registered devices</p>
+          <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
             <span><FaClock className="inline mr-1" /> Last update: {lastUpdate.toLocaleTimeString()}</span>
             <span>• {filteredDevices.length} devices</span>
             <span>• {totalReadings} total readings</span>
@@ -502,19 +501,19 @@ const Dashboard = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          <button onClick={fetchSensorData} disabled={loading} className="px-3 py-2 bg-white border border-gray-200 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-all disabled:opacity-50">
+          <button onClick={fetchSensorData} disabled={loading} className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg flex items-center gap-1.5 hover:bg-gray-50 transition-all disabled:opacity-50 text-sm">
             <FaSpinner className={loading ? "animate-spin" : ""} /> Refresh
           </button>
-          <button onClick={handleDownload} className="px-3 py-2 bg-white border border-gray-200 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-all">
+          <button onClick={handleDownload} className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg flex items-center gap-1.5 hover:bg-gray-50 transition-all text-sm">
             <FaFileDownload /> Export
           </button>
         </div>
       </div>
 
       {/* Filters Section */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 mb-6 overflow-hidden">
-        <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 flex justify-between items-center">
-          <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+      <div className="bg-white rounded-xl shadow-lg border border-gray-100 mb-4 overflow-hidden">
+        <div className="px-3 py-2 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 flex justify-between items-center">
+          <h2 className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
             <FaFilter className="text-purple-500" />
             Filters
           </h2>
@@ -526,11 +525,11 @@ const Dashboard = () => {
           </button>
         </div>
         
-        <div className="p-4">
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="p-3">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Plant Filter */}
-            <div className="flex-1 min-w-[180px]">
-              <label className="block text-xs text-gray-500 mb-1">Plant</label>
+            <div className="flex-1 min-w-[160px]">
+              <label className="block text-[10px] text-gray-500 mb-0.5">Plant</label>
               <select
                 value={selectedPlant}
                 onChange={(e) => {
@@ -538,7 +537,7 @@ const Dashboard = () => {
                   setSelectedZone('');
                   setSelectedDevice('');
                 }}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300 bg-white"
+                className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300 bg-white"
               >
                 <option value="">All Plants</option>
                 {plantsList.map(plant => (
@@ -548,15 +547,15 @@ const Dashboard = () => {
             </div>
 
             {/* Zone Filter - depends on selected plant */}
-            <div className="flex-1 min-w-[180px]">
-              <label className="block text-xs text-gray-500 mb-1">Zone</label>
+            <div className="flex-1 min-w-[160px]">
+              <label className="block text-[10px] text-gray-500 mb-0.5">Zone</label>
               <select
                 value={selectedZone}
                 onChange={(e) => {
                   setSelectedZone(e.target.value);
                   setSelectedDevice('');
                 }}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300 bg-white"
+                className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300 bg-white"
                 disabled={!selectedPlant && zonesList.length === 0}
               >
                 <option value="">All Zones</option>
@@ -569,12 +568,12 @@ const Dashboard = () => {
             </div>
 
             {/* Device Filter - depends on selected zone */}
-            <div className="flex-1 min-w-[180px]">
-              <label className="block text-xs text-gray-500 mb-1">Device</label>
+            <div className="flex-1 min-w-[160px]">
+              <label className="block text-[10px] text-gray-500 mb-0.5">Device</label>
               <select
                 value={selectedDevice}
                 onChange={(e) => setSelectedDevice(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300 bg-white"
+                className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300 bg-white"
                 disabled={!selectedZone && filteredDevices.length === 0}
               >
                 <option value="">All Devices</option>
@@ -586,7 +585,7 @@ const Dashboard = () => {
 
             <button
               onClick={handleResetFilters}
-              className="px-3 py-2 text-sm text-purple-600 hover:text-purple-700 font-medium border border-purple-200 rounded-lg hover:bg-purple-50 transition-all whitespace-nowrap"
+              className="px-3 py-1.5 text-sm text-purple-600 hover:text-purple-700 font-medium border border-purple-200 rounded-lg hover:bg-purple-50 transition-all whitespace-nowrap mt-1"
             >
               Reset
             </button>
@@ -594,25 +593,25 @@ const Dashboard = () => {
 
           {/* Advanced Filters */}
           {showAdvancedFilters && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">State</label>
+                  <label className="block text-[10px] text-gray-500 mb-0.5">State</label>
                   <select
                     value={selectedState}
                     onChange={(e) => { setSelectedState(e.target.value); setSelectedCity(''); }}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+                    className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
                   >
                     <option value="">All States</option>
                     {statesList.map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">City</label>
+                  <label className="block text-[10px] text-gray-500 mb-0.5">City</label>
                   <select
                     value={selectedCity}
                     onChange={(e) => setSelectedCity(e.target.value)}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+                    className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
                     disabled={!selectedState}
                   >
                     <option value="">All Cities</option>
@@ -620,25 +619,25 @@ const Dashboard = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Date From</label>
+                  <label className="block text-[10px] text-gray-500 mb-0.5">Date From</label>
                   <input
                     type="date"
                     value={dateFrom}
                     onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+                    className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Date To</label>
+                  <label className="block text-[10px] text-gray-500 mb-0.5">Date To</label>
                   <input
                     type="date"
                     value={dateTo}
                     onChange={(e) => setDateTo(e.target.value)}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+                    className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
                   />
                 </div>
               </div>
-              <p className="text-xs text-gray-400 mt-3">
+              <p className="text-[10px] text-gray-400 mt-2">
                 Note: Data is fetched from the external sensor API
               </p>
             </div>
@@ -646,34 +645,34 @@ const Dashboard = () => {
 
           {/* Active Filters Display */}
           {(selectedPlant || selectedZone || selectedDevice || selectedState || selectedCity) && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <div className="flex flex-wrap gap-2">
+            <div className="mt-2 pt-2 border-t border-gray-100">
+              <div className="flex flex-wrap gap-1.5">
                 {selectedPlant && plantsList.find(p => p._id === selectedPlant) && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px]">
                     Plant: {plantsList.find(p => p._id === selectedPlant)?.name}
                     <button onClick={() => setSelectedPlant('')} className="hover:text-purple-900">×</button>
                   </span>
                 )}
                 {selectedZone && zonesList.find(z => z._id === selectedZone) && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px]">
                     Zone: {zonesList.find(z => z._id === selectedZone)?.name}
                     <button onClick={() => setSelectedZone('')} className="hover:text-blue-900">×</button>
                   </span>
                 )}
                 {selectedDevice && filteredDevices.find(d => d._id === selectedDevice) && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px]">
                     Device: {filteredDevices.find(d => d._id === selectedDevice)?.deviceId}
                     <button onClick={() => setSelectedDevice('')} className="hover:text-green-900">×</button>
                   </span>
                 )}
                 {selectedState && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-[10px]">
                     State: {selectedState}
                     <button onClick={() => setSelectedState('')} className="hover:text-orange-900">×</button>
                   </span>
                 )}
                 {selectedCity && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-pink-100 text-pink-700 rounded-full text-xs">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-pink-100 text-pink-700 rounded-full text-[10px]">
                     City: {selectedCity}
                     <button onClick={() => setSelectedCity('')} className="hover:text-pink-900">×</button>
                   </span>
@@ -685,16 +684,16 @@ const Dashboard = () => {
       </div>
 
       {/* Parameters Selection Section */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+      <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-3 mb-4">
+        <label className="block text-xs font-medium text-gray-700 mb-2 flex items-center gap-1.5">
           <FaChartBar className="text-purple-500" />
           Select Parameters to Display
         </label>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {parameters.map((param) => (
             <label 
               key={param.id} 
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer transition-all text-sm ${
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg cursor-pointer transition-all text-xs ${
                 selectedParameters.includes(param.id)
                   ? 'bg-purple-100 border border-purple-300 shadow-sm'
                   : 'bg-gray-50 border border-gray-200 hover:bg-gray-100'
@@ -704,35 +703,35 @@ const Dashboard = () => {
                 type="checkbox" 
                 checked={selectedParameters.includes(param.id)}
                 onChange={() => handleParameterToggle(param.id)}
-                className="rounded text-purple-500 focus:ring-purple-500 w-3.5 h-3.5" 
+                className="rounded text-purple-500 focus:ring-purple-500 w-3 h-3" 
                 disabled={param.comingSoon}
               />
               <span className={getParameterColorClass(param.color)}>
                 {param.icon}
               </span>
-              <span className={`text-sm ${param.comingSoon ? 'text-gray-400' : 'text-gray-700'}`}>
+              <span className={`text-xs ${param.comingSoon ? 'text-gray-400' : 'text-gray-700'}`}>
                 {param.name}
               </span>
               {param.comingSoon && (
-                <span className="text-xs bg-yellow-100 text-yellow-600 px-1.5 py-0.5 rounded-full ml-0.5">
+                <span className="text-[10px] bg-yellow-100 text-yellow-600 px-1 py-0.5 rounded-full ml-0.5">
                   Soon
                 </span>
               )}
             </label>
           ))}
         </div>
-        <p className="text-xs text-gray-500 mt-3">
+        <p className="text-[10px] text-gray-500 mt-2">
           Selected: {selectedParameters.length} parameters
         </p>
       </div>
 
       {/* Device-wise Charts */}
-      <div id="chart-container" className="space-y-12 mb-6">
+      <div id="chart-container" className="space-y-6 mb-4">
         {filteredDevices.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-12 text-center">
-            <FaMicrochip className="text-6xl text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-600 mb-2">No devices found</h3>
-            <p className="text-gray-400">
+          <div className="bg-white rounded-xl shadow-xl border border-gray-100 p-8 text-center">
+            <FaMicrochip className="text-5xl text-gray-300 mx-auto mb-3" />
+            <h3 className="text-base font-semibold text-gray-600 mb-1">No devices found</h3>
+            <p className="text-sm text-gray-400">
               {selectedPlant || selectedZone 
                 ? "No devices registered in the selected plant/zone. Please add devices first."
                 : "Please select a plant and zone to view devices"}
@@ -744,35 +743,35 @@ const Dashboard = () => {
             const hasData = readings.length > 0;
             
             return (
-              <div key={device._id} className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+              <div key={device._id} className="bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                   <div className="flex justify-between items-start flex-wrap gap-2">
                     <div>
-                      <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                      <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
                         <FaMicrochip className="text-purple-500" />
                         {device.deviceId}
                       </h3>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-[10px] text-gray-500 mt-0.5">
                         {device.plantName} → {device.zoneName} • {readings.length} readings
                       </p>
                     </div>
                     {hasData && readings[readings.length - 1] && (
-                      <div className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full flex items-center gap-1">
-                        <FaCheckCircle className="text-xs" /> Live
+                      <div className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <FaCheckCircle className="text-[10px]" /> Live
                       </div>
                     )}
                   </div>
                 </div>
                 
-                <div className="p-6 space-y-8">
+                <div className="p-4 space-y-6">
                   {selectedParameters.map((paramId) => {
                     const param = parameters.find(p => p.id === paramId);
                     if (param.comingSoon) {
                       return (
-                        <div key={paramId} className="bg-gray-50 rounded-xl p-8 text-center">
-                          <div className="text-4xl mb-3">{param.icon}</div>
-                          <h4 className="text-lg font-semibold text-gray-700">{param.name}</h4>
-                          <p className="text-gray-500">Coming soon</p>
+                        <div key={paramId} className="bg-gray-50 rounded-xl p-6 text-center">
+                          <div className="text-3xl mb-2">{param.icon}</div>
+                          <h4 className="text-base font-semibold text-gray-700">{param.name}</h4>
+                          <p className="text-sm text-gray-500">Coming soon</p>
                         </div>
                       );
                     }
@@ -784,9 +783,9 @@ const Dashboard = () => {
                     
                     if (!chartData || chartData.length === 0) {
                       return (
-                        <div key={paramId} className="bg-gray-50 rounded-xl p-8 text-center">
-                          <h4 className="text-lg font-semibold text-gray-700">{param.name}</h4>
-                          <p className="text-gray-500">No data available for this device</p>
+                        <div key={paramId} className="bg-gray-50 rounded-xl p-6 text-center">
+                          <h4 className="text-base font-semibold text-gray-700">{param.name}</h4>
+                          <p className="text-sm text-gray-500">No data available for this device</p>
                         </div>
                       );
                     }
@@ -810,20 +809,20 @@ const Dashboard = () => {
                     };
                     
                     return (
-                      <div key={paramId} className="space-y-3">
-                        <div className="flex justify-between items-center flex-wrap gap-3">
-                          <div className="flex items-center gap-2">
+                      <div key={paramId} className="space-y-2">
+                        <div className="flex justify-between items-center flex-wrap gap-2">
+                          <div className="flex items-center gap-1.5">
                             <span className={getParameterColorClass(param.color)}>
                               {param.icon}
                             </span>
-                            <h4 className="font-semibold text-gray-800">{param.name} Trend</h4>
+                            <h4 className="font-semibold text-gray-800 text-sm">{param.name} Trend</h4>
                             {isAlert && (
-                              <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <FaExclamationTriangle className="text-xs" /> Alert
+                              <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                <FaExclamationTriangle className="text-[10px]" /> Alert
                               </span>
                             )}
                           </div>
-                          <div className="flex gap-4 text-sm">
+                          <div className="flex gap-3 text-xs">
                             <div>
                               <span className="text-gray-500">Current:</span>
                               <span className="font-semibold ml-1 text-gray-800">
@@ -838,35 +837,35 @@ const Dashboard = () => {
                             </div>
                           </div>
                         </div>
-                        <ResponsiveContainer width="100%" height={400}>
-                          <LineChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                             <XAxis 
                               dataKey="time" 
-                              tick={{ fontSize: 11 }} 
+                              tick={{ fontSize: 10 }} 
                               interval="preserveStartEnd"
                               angle={-45}
                               textAnchor="end"
-                              height={60}
-                              label={{ value: 'Time', position: 'insideBottom', offset: -10 }}
+                              height={50}
+                              label={{ value: 'Time', position: 'insideBottom', offset: -5, fontSize: 10 }}
                             />
                             <YAxis 
-                              tick={{ fontSize: 11 }}
-                              label={{ value: param.unit, angle: -90, position: 'insideLeft' }}
+                              tick={{ fontSize: 10 }}
+                              label={{ value: param.unit, angle: -90, position: 'insideLeft', fontSize: 10 }}
                               domain={yAxisDomain}
                             />
                             <Tooltip 
                               labelFormatter={(label) => `Time: ${label}`}
                               formatter={(value, name) => [`${value} ${param.unit}`, param.name]}
                             />
-                            <Legend />
+                            <Legend wrapperStyle={{ fontSize: '11px' }} />
                             <Line 
                               type="monotone" 
                               dataKey="value" 
                               stroke={getLineColor(param.color)} 
-                              strokeWidth={2.5} 
-                              dot={{ r: 2 }} 
-                              activeDot={{ r: 6 }} 
+                              strokeWidth={2} 
+                              dot={{ r: 1.5 }} 
+                              activeDot={{ r: 5 }} 
                               name={param.name} 
                               unit={param.unit} 
                             />
@@ -883,13 +882,13 @@ const Dashboard = () => {
       </div>
 
       {/* Recent Readings Table */}
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-          <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+      <div className="bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+          <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
             <FaMicrochip className="text-purple-500" />
             Recent Sensor Readings
           </h3>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-[10px] text-gray-500 mt-0.5">
             Latest records from {filteredDevices.length} device{filteredDevices.length !== 1 ? 's' : ''}
           </p>
         </div>
@@ -897,16 +896,16 @@ const Dashboard = () => {
           <table className="w-full min-w-[800px]">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Device ID</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Plant</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Zone</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Temperature</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Humidity</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">VOC</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">PM 2.5</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">PM 10</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">CO2</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Time</th>
+                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Device ID</th>
+                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Plant</th>
+                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Zone</th>
+                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Temperature</th>
+                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Humidity</th>
+                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">VOC</th>
+                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">PM 2.5</th>
+                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">PM 10</th>
+                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">CO2</th>
+                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Time</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -916,36 +915,36 @@ const Dashboard = () => {
                 
                 return (
                   <tr key={device._id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-sm font-mono text-gray-700">{device.deviceId}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{device.plantName}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{device.zoneName}</td>
-                    <td className="px-4 py-3 text-sm">
+                    <td className="px-3 py-2 text-[11px] font-mono text-gray-700">{device.deviceId}</td>
+                    <td className="px-3 py-2 text-[11px] text-gray-600">{device.plantName}</td>
+                    <td className="px-3 py-2 text-[11px] text-gray-600">{device.zoneName}</td>
+                    <td className="px-3 py-2 text-[11px]">
                       <span className={latestReading?.temperature > 34 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
                         {latestReading?.temperature || '--'}°C
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{latestReading?.humidity || '--'}%</td>
-                    <td className="px-4 py-3 text-sm">
+                    <td className="px-3 py-2 text-[11px] text-gray-700">{latestReading?.humidity || '--'}%</td>
+                    <td className="px-3 py-2 text-[11px]">
                       <span className={latestReading?.voc > 35000 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
                         {latestReading?.voc || '--'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm">
+                    <td className="px-3 py-2 text-[11px]">
                       <span className={latestReading?.pm_2_5 > 100 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
                         {latestReading?.pm_2_5 || '--'} µg/m³
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm">
+                    <td className="px-3 py-2 text-[11px]">
                       <span className={latestReading?.pm_10 > 150 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
                         {latestReading?.pm_10 || '--'} µg/m³
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm">
+                    <td className="px-3 py-2 text-[11px]">
                       <span className={latestReading?.co2 > 2000 ? 'text-red-600 font-semibold' : 'text-gray-700'}>
                         {latestReading?.co2 || '--'} ppm
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-500">
+                    <td className="px-3 py-2 text-[10px] text-gray-500">
                       {latestReading?.timestamp ? new Date(latestReading.timestamp).toLocaleString() : 'No data'}
                     </td>
                   </tr>
@@ -953,7 +952,7 @@ const Dashboard = () => {
               })}
               {filteredDevices.length === 0 && (
                 <tr>
-                  <td colSpan="10" className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan="10" className="px-3 py-4 text-center text-gray-500 text-sm">
                     No devices found. Please add devices from the "Add Device" page.
                   </td>
                 </tr>
@@ -962,8 +961,8 @@ const Dashboard = () => {
           </table>
         </div>
         {error && (
-          <div className="p-4 bg-red-50 border-t border-red-200">
-            <p className="text-red-600 text-sm flex items-center gap-2">
+          <div className="p-3 bg-red-50 border-t border-red-200">
+            <p className="text-red-600 text-xs flex items-center gap-1.5">
               <FaExclamationTriangle /> Error: {error}
             </p>
           </div>

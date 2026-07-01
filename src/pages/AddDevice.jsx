@@ -39,6 +39,7 @@ const AddDevice = () => {
   // Form states
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch plants on load
   useEffect(() => {
@@ -147,7 +148,8 @@ const AddDevice = () => {
         setExistingDeviceInfo({
           zoneName: zoneName,
           plantName: plantName,
-          deviceId: deviceIdInput.trim()
+          deviceId: deviceIdInput.trim(),
+          deviceData: existingCheck.device
         });
         setValidating(false);
         return false;
@@ -232,16 +234,61 @@ const AddDevice = () => {
     }
   };
 
-  const handleDeleteDevice = async (id) => {
-    if (window.confirm('Are you sure you want to delete this device? This will allow it to be added to another zone.')) {
+  const handleDeleteDevice = async (id, deviceId) => {
+    if (window.confirm(`Are you sure you want to delete device "${deviceId}" from this zone? This will allow it to be added to another zone.`)) {
+      setDeleting(true);
       try {
-        await api.deleteDevice(id);
-        setDevices(devices.filter(d => d._id !== id));
-        setMessage({ type: 'success', text: 'Device deleted successfully! You can now add it to another zone.' });
+        console.log(`🗑️ Attempting to delete device: ${id} (${deviceId})`);
+        
+        // Call the API to delete the device
+        const response = await api.deleteDevice(id);
+        console.log('✅ Delete response:', response);
+        
+        // Remove device from local state
+        setDevices(prevDevices => prevDevices.filter(d => d._id !== id));
+        
+        setMessage({ 
+          type: 'success', 
+          text: `Device "${deviceId}" deleted successfully! You can now add it to another zone.` 
+        });
+        
+        // Refresh the device list to ensure consistency
+        await fetchDevices(selectedZone._id);
+        
         setTimeout(() => setMessage({ type: '', text: '' }), 3000);
       } catch (error) {
-        setMessage({ type: 'error', text: 'Failed to delete device' });
+        console.error('❌ Delete device error:', error);
+        
+        // Check if it's a 404 error (device already deleted)
+        if (error.response?.status === 404) {
+          setMessage({ 
+            type: 'error', 
+            text: `Device "${deviceId}" was already deleted or not found. Refreshing list...` 
+          });
+          // Refresh the list to sync
+          await fetchDevices(selectedZone._id);
+        } else {
+          const errorMessage = error.response?.data?.message || error.message || 'Failed to delete device';
+          setMessage({ type: 'error', text: errorMessage });
+        }
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+      } finally {
+        setDeleting(false);
       }
+    }
+  };
+
+  // Force refresh devices list
+  const handleRefreshDevices = async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchDevices(selectedZone._id);
+      setMessage({ type: 'success', text: 'Device list refreshed!' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 2000);
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to refresh devices' });
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -392,15 +439,25 @@ const AddDevice = () => {
           </div>
         )}
 
-        {/* Add Device Button */}
-        {!showForm && (
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-3 mb-6">
+          {!showForm && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="px-6 py-3 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
+            >
+              <FaPlus /> Add New Device
+            </button>
+          )}
           <button
-            onClick={() => setShowForm(true)}
-            className="mb-6 px-6 py-3 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
+            onClick={handleRefreshDevices}
+            disabled={isRefreshing}
+            className="px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all flex items-center gap-2 disabled:opacity-50"
           >
-            <FaPlus /> Add New Device
+            <FaSync className={isRefreshing ? 'animate-spin' : ''} />
+            Refresh List
           </button>
-        )}
+        </div>
 
         {/* Device Form - SIMPLIFIED */}
         {showForm && (
@@ -425,7 +482,7 @@ const AddDevice = () => {
                       setExistingDeviceInfo(null);
                     }}
                     className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 font-mono"
-                    placeholder="Enter Device ID (e.g., FACTORY-FLOOR-1-DEV-01)"
+                    placeholder="Enter Device ID (e.g., sensor_main_01)"
                   />
                   <button
                     onClick={validateDeviceId}
@@ -482,6 +539,20 @@ const AddDevice = () => {
                     <p className="text-xs text-red-600">
                       Each device can only be assigned to ONE zone. Please delete the device from its current zone first, or use a different device ID.
                     </p>
+                    <button
+                      onClick={() => {
+                        // Navigate to the zone where the device is located
+                        setSelectedPlant(existingDeviceInfo.deviceData?.plantId);
+                        setSelectedZone(existingDeviceInfo.deviceData?.zoneId);
+                        fetchDevices(existingDeviceInfo.deviceData?.zoneId?._id);
+                        setShowForm(false);
+                        setValidationError('');
+                        setExistingDeviceInfo(null);
+                      }}
+                      className="mt-2 px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-all"
+                    >
+                      Go to {existingDeviceInfo.zoneName} Zone
+                    </button>
                   </div>
                 )}
                 
@@ -519,9 +590,17 @@ const AddDevice = () => {
 
         {/* Devices List */}
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <h2 className="text-lg font-semibold text-gray-800">Devices in {selectedZone.name}</h2>
-            <p className="text-sm text-gray-500">{devices.length} devices total</p>
+          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-800">Devices in {selectedZone.name}</h2>
+              <p className="text-sm text-gray-500">{devices.length} devices total</p>
+            </div>
+            {deleting && (
+              <div className="flex items-center gap-2 text-blue-600">
+                <FaSpinner className="animate-spin" />
+                <span className="text-sm">Deleting...</span>
+              </div>
+            )}
           </div>
           
           {devices.length === 0 ? (
@@ -545,15 +624,14 @@ const AddDevice = () => {
                         Added on: {new Date(device.createdAt).toLocaleDateString()}
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleDeleteDevice(device._id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                        title="Delete device (allows re-assigning to another zone)"
-                      >
-                        <FaTrash />
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => handleDeleteDevice(device._id, device.deviceId)}
+                      disabled={deleting}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
+                      title="Delete device (allows re-assigning to another zone)"
+                    >
+                      <FaTrash />
+                    </button>
                   </div>
                 </div>
               ))}
