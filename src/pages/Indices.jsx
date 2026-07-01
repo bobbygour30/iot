@@ -34,12 +34,13 @@ const Indices = () => {
   const [loading, setLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [currentStartIndex, setCurrentStartIndex] = useState(0);
-  const [chunkSize] = useState(100); // 100 entries per window
-  const [updateInterval] = useState(5 * 60 * 1000); // 5 minutes
+  const [chunkSize] = useState(100);
+  const [updateInterval] = useState(5 * 60 * 1000);
   const [progress, setProgress] = useState(0);
   const [totalChunks, setTotalChunks] = useState(0);
   const [currentChunk, setCurrentChunk] = useState(0);
   const [timeWindow, setTimeWindow] = useState({ start: '', end: '', entries: 0 });
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   
   const streamIntervalRef = useRef(null);
   const progressIntervalRef = useRef(null);
@@ -57,6 +58,119 @@ const Indices = () => {
   const [simulationSpeed, setSimulationSpeed] = useState(1);
 
   const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f97316', '#ef4444', '#ec4899', '#06b6d4', '#eab308'];
+
+  // Save data to localStorage
+  const saveDataToStorage = (data) => {
+    try {
+      localStorage.setItem('indicesData', JSON.stringify(data));
+    } catch (error) {
+      console.error('Error saving data to localStorage:', error);
+    }
+  };
+
+  // Load data from localStorage
+  const loadDataFromStorage = () => {
+    try {
+      const storedData = localStorage.getItem('indicesData');
+      if (storedData) {
+        const parsedData = JSON.parse(storedData);
+        if (parsedData && parsedData.length > 0) {
+          return parsedData;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Error loading data from localStorage:', error);
+      return null;
+    }
+  };
+
+  // Save state to localStorage
+  const saveStateToStorage = (state) => {
+    try {
+      localStorage.setItem('indicesState', JSON.stringify(state));
+    } catch (error) {
+      console.error('Error saving state to localStorage:', error);
+    }
+  };
+
+  // Load state from localStorage
+  const loadStateFromStorage = () => {
+    try {
+      const storedState = localStorage.getItem('indicesState');
+      if (storedState) {
+        return JSON.parse(storedState);
+      }
+      return null;
+    } catch (error) {
+      console.error('Error loading state from localStorage:', error);
+      return null;
+    }
+  };
+
+  // Load data on component mount
+  useEffect(() => {
+    const storedData = loadDataFromStorage();
+    if (storedData) {
+      setAllData(storedData);
+      setIsDataLoaded(true);
+      
+      const chunks = Math.ceil(storedData.length / chunkSize);
+      setTotalChunks(chunks);
+      
+      // Load saved state or start from beginning
+      const savedState = loadStateFromStorage();
+      if (savedState && savedState.currentChunk !== undefined) {
+        const chunkIndex = savedState.currentChunk;
+        const startIndex = chunkIndex * chunkSize;
+        const chunk = storedData.slice(startIndex, startIndex + chunkSize);
+        
+        if (chunk.length > 0) {
+          setDisplayData(chunk);
+          setFilteredData(chunk);
+          setCurrentChunk(chunkIndex);
+          setCurrentStartIndex(startIndex);
+          setProgress((startIndex / storedData.length) * 100);
+          setTimeWindow({
+            start: new Date(chunk[0].Timestamp).toLocaleString(),
+            end: new Date(chunk[chunk.length - 1].Timestamp).toLocaleString(),
+            entries: chunk.length
+          });
+          setIsStreaming(savedState.isStreaming || false);
+        }
+      } else {
+        // Start with first chunk
+        const firstChunk = storedData.slice(0, chunkSize);
+        setDisplayData(firstChunk);
+        setFilteredData(firstChunk);
+        setCurrentChunk(0);
+        setCurrentStartIndex(0);
+        setProgress(0);
+        if (firstChunk.length > 0) {
+          setTimeWindow({
+            start: new Date(firstChunk[0].Timestamp).toLocaleString(),
+            end: new Date(firstChunk[firstChunk.length - 1].Timestamp).toLocaleString(),
+            entries: firstChunk.length
+          });
+        }
+        setIsStreaming(storedData.length > chunkSize);
+      }
+      
+      setLoading(false);
+    }
+  }, []);
+
+  // Save state when it changes
+  useEffect(() => {
+    if (isDataLoaded) {
+      saveStateToStorage({
+        currentChunk,
+        isStreaming,
+        currentStartIndex,
+        progress
+      });
+    }
+  }, [currentChunk, isStreaming, currentStartIndex, progress, isDataLoaded]);
 
   // Load Excel file
   const handleFileUpload = (event) => {
@@ -89,6 +203,10 @@ const Indices = () => {
         mappedData.sort((a, b) => new Date(a.Timestamp) - new Date(b.Timestamp));
         
         setAllData(mappedData);
+        setIsDataLoaded(true);
+        
+        // Save to localStorage
+        saveDataToStorage(mappedData);
         
         const chunks = Math.ceil(mappedData.length / chunkSize);
         setTotalChunks(chunks);
@@ -470,6 +588,22 @@ const Indices = () => {
   const zones = [...new Set(allData.map(item => item.Zone))];
   const alertLevels = [...new Set(allData.map(item => item.Alert_Level))];
 
+  // Clear stored data (optional - for debugging)
+  const clearStoredData = () => {
+    localStorage.removeItem('indicesData');
+    localStorage.removeItem('indicesState');
+    setAllData([]);
+    setDisplayData([]);
+    setFilteredData([]);
+    setIsDataLoaded(false);
+    setTimeWindow({ start: '', end: '', entries: 0 });
+    setCurrentChunk(0);
+    setCurrentStartIndex(0);
+    setProgress(0);
+    setIsStreaming(false);
+    window.location.reload();
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-3 sm:p-4">
       {/* Header */}
@@ -493,12 +627,15 @@ const Indices = () => {
             <span>• {timeWindow.entries} entries in this window</span>
             <span>• Window {currentChunk + 1}/{totalChunks}</span>
             <span>• Progress: {Math.round(progress)}%</span>
+            {isDataLoaded && (
+              <span className="text-green-600">• Data saved</span>
+            )}
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
           <label className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg flex items-center gap-1.5 hover:bg-gray-50 transition-all cursor-pointer text-sm">
             <FaUpload />
-            <span>Upload Excel</span>
+            <span>{isDataLoaded ? 'Replace Excel' : 'Upload Excel'}</span>
             <input
               type="file"
               accept=".xlsx,.xls"
@@ -540,6 +677,13 @@ const Indices = () => {
                 className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg flex items-center gap-1.5 hover:bg-gray-50 transition-all text-sm"
               >
                 <FaDownload /> Download
+              </button>
+
+              <button
+                onClick={clearStoredData}
+                className="px-3 py-1.5 bg-red-100 text-red-700 border border-red-300 rounded-lg flex items-center gap-1.5 hover:bg-red-200 transition-all text-sm"
+              >
+                <FaSync /> Clear Data
               </button>
             </>
           )}
@@ -692,39 +836,43 @@ const Indices = () => {
         </div>
       </div>
 
-      {/* Chart Type Selector & Indices Selection */}
+      {/* Chart Type Selector & Indices Selection - Enhanced & Centered */}
       {displayData.length > 0 && (
-        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-3 mb-4">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-gray-700">Chart Type:</span>
-              <div className="flex gap-1">
+        <div className="bg-gradient-to-r from-purple-50 via-white to-pink-50 rounded-xl shadow-lg border border-purple-100 p-4 mb-4">
+          <div className="flex flex-wrap items-center justify-center gap-45">
+            {/* Chart Type - Left */}
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold text-gray-700 flex items-center gap-1">
+                <FaChartLine className="text-purple-500" />
+                Chart Type:
+              </span>
+              <div className="flex gap-1.5">
                 <button
                   onClick={() => setChartType('line')}
-                  className={`px-2.5 py-1 rounded-lg text-xs transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     chartType === 'line' 
-                      ? 'bg-purple-500 text-white' 
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-md shadow-purple-200' 
+                      : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-purple-300'
                   }`}
                 >
                   <FaChartLine className="inline mr-1" /> Line
                 </button>
                 <button
                   onClick={() => setChartType('bar')}
-                  className={`px-2.5 py-1 rounded-lg text-xs transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     chartType === 'bar' 
-                      ? 'bg-purple-500 text-white' 
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md shadow-blue-200' 
+                      : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-blue-300'
                   }`}
                 >
                   <FaChartBar className="inline mr-1" /> Bar
                 </button>
                 <button
                   onClick={() => setChartType('area')}
-                  className={`px-2.5 py-1 rounded-lg text-xs transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     chartType === 'area' 
-                      ? 'bg-purple-500 text-white' 
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-md shadow-green-200' 
+                      : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-green-300'
                   }`}
                 >
                   <FaChartArea className="inline mr-1" /> Area
@@ -732,23 +880,50 @@ const Indices = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-medium text-gray-700">Indices:</span>
-              {['TCI', 'IAQI', 'VCI', 'ACI', 'HPI'].map(indice => (
-                <label key={indice} className="flex items-center gap-1 text-xs">
-                  <input
-                    type="checkbox"
-                    checked={selectedIndices.includes(indice)}
-                    onChange={() => handleIndiceToggle(indice)}
-                    className="rounded text-purple-500 focus:ring-purple-500 w-3 h-3"
-                  />
-                  <span style={{ color: getLineColor(indice) }}>{indice}</span>
-                </label>
-              ))}
+            {/* Indices - Center */}
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold text-gray-700 flex items-center gap-1">
+                <FaChartBar className="text-purple-500" />
+                Indices:
+              </span>
+              <div className="flex gap-2 flex-wrap">
+                {['TCI', 'IAQI', 'VCI', 'ACI', 'HPI'].map(indice => (
+                  <label 
+                    key={indice} 
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-lg cursor-pointer transition-all text-xs font-medium ${
+                      selectedIndices.includes(indice)
+                        ? 'shadow-md scale-105'
+                        : 'opacity-60 hover:opacity-100'
+                    }`}
+                    style={{
+                      backgroundColor: selectedIndices.includes(indice) ? `${getLineColor(indice)}20` : 'transparent',
+                      border: selectedIndices.includes(indice) ? `2px solid ${getLineColor(indice)}` : '2px solid transparent'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedIndices.includes(indice)}
+                      onChange={() => handleIndiceToggle(indice)}
+                      className="rounded w-3 h-3"
+                      style={{ 
+                        accentColor: getLineColor(indice),
+                        backgroundColor: getLineColor(indice)
+                      }}
+                    />
+                    <span style={{ color: getLineColor(indice), fontWeight: selectedIndices.includes(indice) ? 'bold' : 'normal' }}>
+                      {indice}
+                    </span>
+                  </label>
+                ))}
+              </div>
             </div>
-            
-            <div className="ml-auto text-xs text-gray-400">
-              {timeWindow.entries} entries in this window
+
+            {/* Entry Count - Right */}
+            <div className="flex items-center gap-2 bg-gradient-to-r from-purple-100 to-pink-100 px-4 py-2 rounded-lg shadow-inner">
+              <FaClock className="text-purple-600 text-sm" />
+              <span className="text-xs font-semibold text-gray-700">
+                {timeWindow.entries} entries in this window
+              </span>
             </div>
           </div>
         </div>
