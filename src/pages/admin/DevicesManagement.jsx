@@ -45,6 +45,9 @@ const DevicesManagement = () => {
 
   const deviceTypes = ['Multi-Sensor', 'Temperature Sensor', 'Humidity Sensor', 'VOC Sensor'];
 
+  // Get backend URL from environment variable
+  const BACKEND_URL = 'https://api.scanmyzone.com';
+
   useEffect(() => {
     fetchAllData();
   }, []);
@@ -72,18 +75,14 @@ const DevicesManagement = () => {
 
   const fetchExternalDevices = async () => {
     try {
-      // Using ScanMyZone API - GET /api/device with include_data=true
-      const apiKey = process.env.REACT_APP_SCANMYZONE_API_KEY || '';
-      
-      // Get all devices with their latest readings
-      // Using limit=100 to get a good sample, hours=168 for last 7 days
-      const url = 'https://api.scanmyzone.com/api/device?include_data=true&limit=100&hours=168';
+      // Using backend proxy - GET /api/scanmyzone
+      const url = `${BACKEND_URL}/api/scanmyzone?include_data=true&limit=100&hours=168`;
       
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'x-api-key': apiKey,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
         }
       });
       
@@ -147,18 +146,14 @@ const DevicesManagement = () => {
     setError('');
     
     try {
-      // Using ScanMyZone API - GET /api/device with include_data=true
-      const apiKey = process.env.REACT_APP_SCANMYZONE_API_KEY || '';
-      
-      // Get all devices with their latest readings
-      // Using limit=100 to get a good sample, hours=168 for last 7 days
-      const url = 'https://api.scanmyzone.com/api/device?include_data=true&limit=100&hours=168';
+      // Using backend proxy - GET /api/scanmyzone
+      const url = `${BACKEND_URL}/api/scanmyzone?include_data=true&limit=100&hours=168`;
       
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'x-api-key': apiKey,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
         }
       });
       

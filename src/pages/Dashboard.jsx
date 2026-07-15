@@ -275,8 +275,9 @@ const Dashboard = () => {
   const fetchSensorData = async () => {
     setIsSensorDataLoading(true);
     try {
-      // Build URL with parameters for the proxy
-      let url = '/scanmyzone?include_data=true&limit=100&hours=8';
+      // Use your backend proxy
+      const BACKEND_URL = 'https://api.scanmyzone.com'; // ← CHANGE THIS TO YOUR BACKEND URL
+      let url = `${BACKEND_URL}/api/scanmyzone?include_data=true&limit=100&hours=8`;
       
       // If a specific device is selected, filter by device_id
       if (selectedDevice) {
@@ -286,9 +287,19 @@ const Dashboard = () => {
         }
       }
       
-      // Call the backend proxy instead of ScanMyZone directly
-      const response = await api.get(url);
-      const result = response.data;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch sensor data');

@@ -96,21 +96,18 @@ const AddDevice = () => {
     }
   };
 
-  // Check if device exists in ScanMyZone API
+  // Check if device exists in ScanMyZone API via backend proxy
   const checkDeviceInExternalAPI = async (deviceId) => {
     try {
-      // Using ScanMyZone API - GET /api/device with include_data=true
-      // We'll search for the specific device using the device_id filter
-      const apiKey = import.meta.env.VITE_API_KEY || '';
-      
-      // Build URL with device_id filter to search for specific device
-      const url = `https://api.scanmyzone.com/api/device?include_data=true&device_id=${encodeURIComponent(deviceId)}&limit=1`;
+      // Use your backend proxy
+      const BACKEND_URL = 'https://api.scanmyzone.com'; // ← CHANGE THIS TO YOUR BACKEND URL
+      const url = `${BACKEND_URL}/api/scanmyzone/validate?device_id=${encodeURIComponent(deviceId)}`;
       
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'x-api-key': apiKey,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
         }
       });
       
@@ -127,7 +124,7 @@ const AddDevice = () => {
       
       const data = result.data || [];
       
-      // Find the device with matching ID (the API should already filter by device_id)
+      // Find the device with matching ID
       if (data.length > 0) {
         const device = data[0];
         console.log('✅ Device found in ScanMyZone API:', device);
@@ -185,7 +182,7 @@ const AddDevice = () => {
         return false;
       }
       
-      // SECOND: Check against ScanMyZone API
+      // SECOND: Check against ScanMyZone API via backend proxy
       const externalDevice = await checkDeviceInExternalAPI(deviceIdInput.trim());
       
       if (!externalDevice) {
