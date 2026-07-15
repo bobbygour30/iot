@@ -100,7 +100,7 @@ const AddDevice = () => {
   const checkDeviceInExternalAPI = async (deviceId) => {
     try {
       // Use your backend proxy
-      const BACKEND_URL = 'https://api.scanmyzone.com'; // ← CHANGE THIS TO YOUR BACKEND URL
+      const BACKEND_URL = 'https://new-sensor-api-snxk.vercel.app'; // ← CHANGE THIS TO YOUR BACKEND URL
       const url = `${BACKEND_URL}/api/scanmyzone/validate?device_id=${encodeURIComponent(deviceId)}`;
       
       const response = await fetch(url, {

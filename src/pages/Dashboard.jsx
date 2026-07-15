@@ -276,7 +276,7 @@ const Dashboard = () => {
     setIsSensorDataLoading(true);
     try {
       // Use your backend proxy
-      const BACKEND_URL = 'https://api.scanmyzone.com'; // ← CHANGE THIS TO YOUR BACKEND URL
+      const BACKEND_URL = 'https://new-sensor-api-snxk.vercel.app'; // ← CHANGE THIS TO YOUR BACKEND URL
       let url = `${BACKEND_URL}/api/scanmyzone?include_data=true&limit=100&hours=8`;
       
       // If a specific device is selected, filter by device_id

@@ -46,7 +46,7 @@ const DevicesManagement = () => {
   const deviceTypes = ['Multi-Sensor', 'Temperature Sensor', 'Humidity Sensor', 'VOC Sensor'];
 
   // Get backend URL from environment variable
-  const BACKEND_URL = 'https://api.scanmyzone.com';
+  const BACKEND_URL = 'https://new-sensor-api-snxk.vercel.app';
 
   useEffect(() => {
     fetchAllData();
