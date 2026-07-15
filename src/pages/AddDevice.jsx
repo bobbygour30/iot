@@ -96,20 +96,48 @@ const AddDevice = () => {
     }
   };
 
-  // Check if device exists in external API
+  // Check if device exists in ScanMyZone API
   const checkDeviceInExternalAPI = async (deviceId) => {
     try {
-      // Updated API endpoint
-      const response = await fetch('https://new-sensor-api-9mub.vercel.app/api/device');
-      if (!response.ok) throw new Error('Failed to fetch external devices');
+      // Using ScanMyZone API - GET /api/device with include_data=true
+      // We'll search for the specific device using the device_id filter
+      const apiKey = import.meta.env.VITE_API_KEY || '';
+      
+      // Build URL with device_id filter to search for specific device
+      const url = `https://api.scanmyzone.com/api/device?include_data=true&device_id=${encodeURIComponent(deviceId)}&limit=1`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'x-api-key': apiKey,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const result = await response.json();
+      
+      if (!result.success) {
+        console.log('API returned error:', result.error);
+        return null;
+      }
+      
       const data = result.data || [];
       
-      // Find the device with matching ID
-      const device = data.find(d => d.device_id === deviceId);
-      return device;
+      // Find the device with matching ID (the API should already filter by device_id)
+      if (data.length > 0) {
+        const device = data[0];
+        console.log('✅ Device found in ScanMyZone API:', device);
+        return device;
+      }
+      
+      console.log('❌ Device not found in ScanMyZone API');
+      return null;
     } catch (error) {
-      console.error('Error checking external API:', error);
+      console.error('Error checking ScanMyZone API:', error);
       return null;
     }
   };
@@ -126,7 +154,7 @@ const AddDevice = () => {
     }
   };
 
-  // Validate Device ID against external API and check for duplicates
+  // Validate Device ID against ScanMyZone API and check for duplicates
   const validateDeviceId = async () => {
     if (!deviceIdInput.trim()) {
       setValidationError('Please enter a Device ID');
@@ -157,11 +185,11 @@ const AddDevice = () => {
         return false;
       }
       
-      // SECOND: Check against external API
+      // SECOND: Check against ScanMyZone API
       const externalDevice = await checkDeviceInExternalAPI(deviceIdInput.trim());
       
       if (!externalDevice) {
-        setValidationError('❌ Device ID not found in external sensor API. Please check the ID and try again.');
+        setValidationError('❌ Device ID not found in ScanMyZone API. Please check the ID and try again.');
         setValidating(false);
         return false;
       }
@@ -173,7 +201,13 @@ const AddDevice = () => {
           temperature: externalDevice.temperature,
           humidity: externalDevice.relative_humidity,
           voc: externalDevice.tvoc,
-          timestamp: externalDevice.created_at
+          co2: externalDevice.co2,
+          pm_2_5: externalDevice.pm_2_5,
+          pm_10: externalDevice.pm_10,
+          lux: externalDevice.lux,
+          noise_av: externalDevice.noise_av,
+          noise_peak: externalDevice.noise_peak,
+          timestamp: externalDevice.created_at || externalDevice.last_seen
         }
       });
       setValidationSuccess(true);
@@ -501,7 +535,7 @@ const AddDevice = () => {
                   <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                     <div className="flex items-center gap-2 text-green-700 mb-2">
                       <FaCheckCircle />
-                      <span className="font-medium">✓ Device Found! Ready to add to {selectedZone.name}</span>
+                      <span className="font-medium">✓ Device Found in ScanMyZone! Ready to add to {selectedZone.name}</span>
                     </div>
                     <div className="grid grid-cols-3 gap-3 text-sm">
                       <div>
@@ -516,6 +550,23 @@ const AddDevice = () => {
                         <span className="text-gray-500">VOC:</span>
                         <span className="ml-1 font-semibold">{validatedDevice.lastReading.voc} ppb</span>
                       </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 text-sm mt-2 pt-2 border-t border-green-200">
+                      <div>
+                        <span className="text-gray-500">CO2:</span>
+                        <span className="ml-1 font-semibold">{validatedDevice.lastReading.co2 || 'N/A'} ppm</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">PM 2.5:</span>
+                        <span className="ml-1 font-semibold">{validatedDevice.lastReading.pm_2_5 || 'N/A'} µg/m³</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">PM 10:</span>
+                        <span className="ml-1 font-semibold">{validatedDevice.lastReading.pm_10 || 'N/A'} µg/m³</span>
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-400 mt-2">
+                      Last seen: {validatedDevice.lastReading.timestamp ? new Date(validatedDevice.lastReading.timestamp).toLocaleString() : 'N/A'}
                     </div>
                   </div>
                 )}

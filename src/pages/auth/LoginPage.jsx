@@ -168,13 +168,6 @@ const LoginPage = () => {
             </div>
           </form>
         </div>
-
-        <div className="mt-6 text-center">
-          <div className="inline-block bg-white/40 backdrop-blur-sm rounded-lg px-4 py-2 text-xs text-gray-500">
-            <p className="font-medium text-gray-600">Demo Credentials:</p>
-            <p>Super Admin: superadmin@zonemonitor.com | Admin@123</p>
-          </div>
-        </div>
       </div>
     </div>
   );

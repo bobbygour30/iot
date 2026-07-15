@@ -72,14 +72,39 @@ const DevicesManagement = () => {
 
   const fetchExternalDevices = async () => {
     try {
-      // Updated API endpoint
-      const response = await fetch('https://new-sensor-api-9mub.vercel.app/api/device');
-      if (!response.ok) throw new Error('Failed to fetch external devices');
+      // Using ScanMyZone API - GET /api/device with include_data=true
+      const apiKey = process.env.REACT_APP_SCANMYZONE_API_KEY || '';
+      
+      // Get all devices with their latest readings
+      // Using limit=100 to get a good sample, hours=168 for last 7 days
+      const url = 'https://api.scanmyzone.com/api/device?include_data=true&limit=100&hours=168';
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'x-api-key': apiKey,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const result = await response.json();
       
-      // The new API returns { success: true, data: [...], device_info: {...}, pagination: {...} }
-      // So we need to access result.data
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch external devices');
+      }
+      
+      // Access the data array from the response
       const data = result.data || [];
+      
+      console.log('📊 ScanMyZone API - External Devices:', {
+        total: data.length,
+        pagination: result.pagination,
+        deviceInfo: result.device_info
+      });
       
       // Group by device_id and get latest reading for each
       const deviceMap = new Map();
@@ -94,7 +119,7 @@ const DevicesManagement = () => {
       setExternalDevices(uniqueDevices);
     } catch (err) {
       console.error('Error fetching external devices:', err);
-      setError('Failed to fetch external sensor data');
+      setError('Failed to fetch external sensor data from ScanMyZone API');
     }
   };
 
@@ -122,14 +147,35 @@ const DevicesManagement = () => {
     setError('');
     
     try {
-      // Updated API endpoint
-      const response = await fetch('https://new-sensor-api-9mub.vercel.app/api/device');
+      // Using ScanMyZone API - GET /api/device with include_data=true
+      const apiKey = process.env.REACT_APP_SCANMYZONE_API_KEY || '';
+      
+      // Get all devices with their latest readings
+      // Using limit=100 to get a good sample, hours=168 for last 7 days
+      const url = 'https://api.scanmyzone.com/api/device?include_data=true&limit=100&hours=168';
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'x-api-key': apiKey,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to sync external devices');
+      }
       
       // Access the data array from the response
       const sensors = result.data || [];
       
-      // Group by device_id
+      // Group by device_id and get latest reading for each
       const deviceMap = new Map();
       sensors.forEach(reading => {
         const existing = deviceMap.get(reading.device_id);
@@ -140,12 +186,12 @@ const DevicesManagement = () => {
       
       const uniqueDevices = Array.from(deviceMap.values());
       setExternalDevices(uniqueDevices);
-      setSuccess(`Synced ${uniqueDevices.length} devices from external source`);
+      setSuccess(`✅ Synced ${uniqueDevices.length} devices from ScanMyZone API`);
       
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Sync error:', err);
-      setError('Failed to sync external devices');
+      setError(`❌ Failed to sync external devices: ${err.message}`);
       setTimeout(() => setError(''), 3000);
     } finally {
       setSyncing(false);
@@ -159,14 +205,17 @@ const DevicesManagement = () => {
       const deviceData = {
         deviceId: selectedExternalDevice.device_id,
         type: 'Multi-Sensor',
-        model: 'External Sensor',
+        model: 'ScanMyZone Sensor',
         location: '',
         plantId: newDevice.plantId,
         zoneId: newDevice.zoneId,
         thresholds: {
           temperature: 34,
           humidity: 70,
-          voc: 35000
+          voc: 35000,
+          co2: 2000,
+          pm_2_5: 100,
+          pm_10: 150
         }
       };
       
@@ -175,7 +224,7 @@ const DevicesManagement = () => {
       setShowAssignModal(false);
       setSelectedExternalDevice(null);
       setNewDevice({ deviceId: '', type: 'Multi-Sensor', model: '', location: '', plantId: '', zoneId: '' });
-      setSuccess(`Device ${selectedExternalDevice.device_id} assigned successfully!`);
+      setSuccess(`✅ Device ${selectedExternalDevice.device_id} assigned successfully!`);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err.message);
@@ -190,7 +239,7 @@ const DevicesManagement = () => {
       setShowAddModal(false);
       setNewDevice({ deviceId: '', type: 'Multi-Sensor', model: '', location: '', plantId: '', zoneId: '' });
       setError('');
-      setSuccess('Device registered successfully!');
+      setSuccess('✅ Device registered successfully!');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err.message);
@@ -204,7 +253,7 @@ const DevicesManagement = () => {
       setShowEditModal(false);
       setSelectedDevice(null);
       setError('');
-      setSuccess('Device updated successfully!');
+      setSuccess('✅ Device updated successfully!');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err.message);
@@ -216,7 +265,7 @@ const DevicesManagement = () => {
       try {
         await api.deleteAdminDevice(id);
         setDevices(devices.filter(device => device._id !== id));
-        setSuccess('Device deleted successfully!');
+        setSuccess('✅ Device deleted successfully!');
         setTimeout(() => setSuccess(''), 3000);
       } catch (err) {
         setError(err.message);
@@ -282,7 +331,7 @@ const DevicesManagement = () => {
             disabled={syncing}
             className="px-4 py-2 bg-blue-500 text-white rounded-lg flex items-center gap-2 hover:bg-blue-600 transition-all"
           >
-            <FaSync className={syncing ? "animate-spin" : ""} /> Sync External Devices
+            <FaSync className={syncing ? "animate-spin" : ""} /> Sync ScanMyZone Devices
           </button>
           <button
             onClick={() => setShowAddModal(true)}
@@ -301,7 +350,7 @@ const DevicesManagement = () => {
               <FaMicrochip className="text-blue-500" />
               Available External Sensors ({externalDevices.length})
             </h2>
-            <span className="text-xs text-gray-500">From new-sensor-api</span>
+            <span className="text-xs text-gray-500">From ScanMyZone API</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {externalDevices.slice(0, 6).map((device) => (
@@ -314,8 +363,12 @@ const DevicesManagement = () => {
                       <span>{device.relative_humidity}%</span>
                       <span>{device.tvoc} ppb</span>
                     </div>
+                    <div className="flex gap-3 mt-0.5 text-xs text-gray-400">
+                      <span>CO₂: {device.co2} ppm</span>
+                      <span>PM2.5: {device.pm_2_5} µg/m³</span>
+                    </div>
                     <p className="text-xs text-gray-400 mt-1">
-                      Last: {new Date(device.created_at).toLocaleString()}
+                      Last: {new Date(device.created_at || device.last_seen).toLocaleString()}
                     </p>
                   </div>
                   <button
@@ -494,7 +547,12 @@ const DevicesManagement = () => {
               <div className="p-6">
                 <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                   <p className="text-sm font-medium text-gray-700">Device: {selectedExternalDevice.device_id}</p>
-                  <p className="text-xs text-gray-500 mt-1">Last reading: {new Date(selectedExternalDevice.created_at).toLocaleString()}</p>
+                  <p className="text-xs text-gray-500 mt-1">Last reading: {new Date(selectedExternalDevice.created_at || selectedExternalDevice.last_seen).toLocaleString()}</p>
+                  <div className="flex gap-4 mt-2 text-xs text-gray-600">
+                    <span>Temp: {selectedExternalDevice.temperature}°C</span>
+                    <span>Humidity: {selectedExternalDevice.relative_humidity}%</span>
+                    <span>CO₂: {selectedExternalDevice.co2} ppm</span>
+                  </div>
                 </div>
                 <div className="space-y-4">
                   <div>
@@ -544,7 +602,7 @@ const DevicesManagement = () => {
         </div>
       )}
 
-      {/* Add Device Modal (same as before) */}
+      {/* Add Device Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4">
@@ -635,7 +693,7 @@ const DevicesManagement = () => {
         </div>
       )}
 
-      {/* Edit Device Modal (same as before) */}
+      {/* Edit Device Modal */}
       {showEditModal && selectedDevice && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4">

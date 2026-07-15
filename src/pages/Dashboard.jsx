@@ -37,6 +37,92 @@ import {
 import * as XLSX from 'xlsx';
 import api from '../services/api';
 
+// Skeleton Loader Components
+const SkeletonLoader = ({ type = 'card', count = 1 }) => {
+  if (type === 'device') {
+    return (
+      <div className="bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden animate-pulse">
+        <div className="px-4 py-2.5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+          <div className="flex justify-between items-start flex-wrap gap-2">
+            <div>
+              <div className="h-5 w-32 bg-gray-200 rounded"></div>
+              <div className="h-3 w-48 bg-gray-200 rounded mt-1"></div>
+            </div>
+            <div className="h-5 w-12 bg-gray-200 rounded-full"></div>
+          </div>
+        </div>
+        <div className="p-4 space-y-6">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="space-y-2">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-4 w-4 bg-gray-200 rounded"></div>
+                  <div className="h-4 w-24 bg-gray-200 rounded"></div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="h-3 w-16 bg-gray-200 rounded"></div>
+                  <div className="h-3 w-16 bg-gray-200 rounded"></div>
+                </div>
+              </div>
+              <div className="h-[300px] bg-gray-100 rounded-xl"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (type === 'chart') {
+    return (
+      <div className="space-y-2 animate-pulse">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-1.5">
+            <div className="h-4 w-4 bg-gray-200 rounded"></div>
+            <div className="h-4 w-32 bg-gray-200 rounded"></div>
+          </div>
+          <div className="flex gap-3">
+            <div className="h-3 w-16 bg-gray-200 rounded"></div>
+            <div className="h-3 w-16 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+        <div className="h-[300px] bg-gray-100 rounded-xl"></div>
+      </div>
+    );
+  }
+
+  if (type === 'table') {
+    return (
+      <div className="animate-pulse">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[600px]">
+            <thead className="bg-gray-50">
+              <tr>
+                {[1, 2, 3, 4].map((i) => (
+                  <th key={i} className="px-3 py-2">
+                    <div className="h-3 w-16 bg-gray-200 rounded"></div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <tr key={i}>
+                  <td className="px-3 py-2"><div className="h-4 w-20 bg-gray-200 rounded"></div></td>
+                  <td className="px-3 py-2"><div className="h-4 w-24 bg-gray-200 rounded"></div></td>
+                  <td className="px-3 py-2"><div className="h-4 w-20 bg-gray-200 rounded"></div></td>
+                  <td className="px-3 py-2"><div className="h-4 w-32 bg-gray-200 rounded"></div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
+
 const Dashboard = () => {
   // Filter states
   const [selectedState, setSelectedState] = useState('');
@@ -53,6 +139,8 @@ const Dashboard = () => {
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [isDynamicDataLoading, setIsDynamicDataLoading] = useState(true);
+  const [isSensorDataLoading, setIsSensorDataLoading] = useState(true);
   
   // Dynamic filter data
   const [plantsList, setPlantsList] = useState([]);
@@ -91,6 +179,7 @@ const Dashboard = () => {
 
   // Fetch all dynamic data
   const fetchDynamicData = async () => {
+    setIsDynamicDataLoading(true);
     try {
       // Fetch plants
       const plantsResponse = await api.getPlants();
@@ -177,25 +266,39 @@ const Dashboard = () => {
       
     } catch (err) {
       console.error('Error fetching dynamic data:', err);
+    } finally {
+      setIsDynamicDataLoading(false);
     }
   };
 
-  // Fetch sensor data from external API with 100 records and last 8 hours
+  // Fetch sensor data from ScanMyZone API via backend proxy
   const fetchSensorData = async () => {
-    setLoading(true);
+    setIsSensorDataLoading(true);
     try {
-      // Updated API endpoint - new API doesn't support hours parameter
-      const response = await fetch('https://new-sensor-api-9mub.vercel.app/api/device');
-      if (!response.ok) throw new Error('Failed to fetch sensor data');
-      const result = await response.json();
+      // Build URL with parameters for the proxy
+      let url = '/scanmyzone?include_data=true&limit=100&hours=8';
       
-      // New API response format: { success: true, data: [...], device_info: {...}, pagination: {...} }
+      // If a specific device is selected, filter by device_id
+      if (selectedDevice) {
+        const device = devicesList.find(d => d._id === selectedDevice);
+        if (device && device.deviceId) {
+          url += `&device_id=${encodeURIComponent(device.deviceId)}`;
+        }
+      }
+      
+      // Call the backend proxy instead of ScanMyZone directly
+      const response = await api.get(url);
+      const result = response.data;
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch sensor data');
+      }
+      
       const data = result.data || [];
       
-      // Store pagination info if available
       if (result.pagination) {
         setPaginationInfo(result.pagination);
-        console.log('📊 API Response:', {
+        console.log('📊 ScanMyZone API Response:', {
           recordsReceived: data.length,
           limit: result.pagination.limit,
           total: result.pagination.total,
@@ -203,13 +306,12 @@ const Dashboard = () => {
           filters: result.filters
         });
       } else {
-        console.log('📊 API Response:', {
-          recordsReceived: data.length,
-          note: 'Using new API format'
+        console.log('📊 ScanMyZone API Response:', {
+          recordsReceived: data.length
         });
       }
       
-      // Group readings by device_id - NOW INCLUDING ALL PARAMETERS
+      // Group readings by device_id
       const readingsByDevice = {};
       data.forEach(reading => {
         if (!readingsByDevice[reading.device_id]) {
@@ -225,99 +327,49 @@ const Dashboard = () => {
           lux: reading.lux,
           noise_av: reading.noise_av,
           noise_peak: reading.noise_peak,
-          timestamp: reading.created_at
+          timestamp: reading.created_at || reading.last_seen
         });
       });
       
-      // Sort readings by timestamp for each device and keep last 100
+      // Sort each device's readings by timestamp
       Object.keys(readingsByDevice).forEach(deviceId => {
         readingsByDevice[deviceId].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        // Keep only the last 100 readings
         readingsByDevice[deviceId] = readingsByDevice[deviceId].slice(-100);
       });
       
       setDeviceReadings(readingsByDevice);
+      setSensorData(data);
       setLastUpdate(new Date());
       setError(null);
     } catch (err) {
       setError(err.message);
       console.error('Fetch error:', err);
     } finally {
-      setLoading(false);
-    }
-  };
-
-  // Alternative: Fetch all sensor data with pagination (if needed for more than 100 records)
-  const fetchAllSensorDataPaginated = async () => {
-    setLoading(true);
-    try {
-      let allData = [];
-      let skip = 0;
-      const limit = 100;
-      let hasMore = true;
-      let pageCount = 0;
-      
-      // New API might support pagination via skip parameter
-      while (hasMore && pageCount < 5) { // Limit to 5 pages max (500 records)
-        const response = await fetch(`https://new-sensor-api-9mub.vercel.app/api/device?limit=${limit}&skip=${skip}`);
-        if (!response.ok) throw new Error('Failed to fetch sensor data');
-        const result = await response.json();
-        const data = result.data || [];
-        
-        allData = [...allData, ...data];
-        hasMore = result.pagination?.hasMore || false;
-        skip += limit;
-        pageCount++;
-        
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      
-      console.log(`📊 Fetched ${allData.length} total records from ${pageCount} pages`);
-      
-      // Group readings by device_id - NOW INCLUDING ALL PARAMETERS
-      const readingsByDevice = {};
-      allData.forEach(reading => {
-        if (!readingsByDevice[reading.device_id]) {
-          readingsByDevice[reading.device_id] = [];
-        }
-        readingsByDevice[reading.device_id].push({
-          temperature: reading.temperature,
-          humidity: reading.relative_humidity,
-          voc: reading.tvoc,
-          pm_2_5: reading.pm_2_5,
-          pm_10: reading.pm_10,
-          co2: reading.co2,
-          lux: reading.lux,
-          noise_av: reading.noise_av,
-          noise_peak: reading.noise_peak,
-          timestamp: reading.created_at
-        });
-      });
-      
-      // Sort readings by timestamp for each device and keep last 100
-      Object.keys(readingsByDevice).forEach(deviceId => {
-        readingsByDevice[deviceId].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-        readingsByDevice[deviceId] = readingsByDevice[deviceId].slice(-100);
-      });
-      
-      setDeviceReadings(readingsByDevice);
-      setLastUpdate(new Date());
-      setError(null);
-    } catch (err) {
-      setError(err.message);
-      console.error('Fetch error:', err);
-    } finally {
-      setLoading(false);
+      setIsSensorDataLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchDynamicData();
-    fetchSensorData(); // Use this for 100 records
+    const loadData = async () => {
+      setLoading(true);
+      await fetchDynamicData();
+      await fetchSensorData();
+      setLoading(false);
+    };
+    
+    loadData();
     
     const interval = setInterval(fetchSensorData, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Refetch sensor data when selected device changes
+  useEffect(() => {
+    if (!loading && !isDynamicDataLoading) {
+      fetchSensorData();
+    }
+  }, [selectedDevice]);
 
   // Get filtered devices based on plant and zone selection
   const getFilteredDevices = () => {
@@ -403,7 +455,6 @@ const Dashboard = () => {
 
   const handleDownload = () => {
     try {
-      // Prepare export data for all devices
       const exportData = [];
       filteredDevices.forEach(device => {
         const readings = getDeviceReadings(device.deviceId);
@@ -471,7 +522,6 @@ const Dashboard = () => {
     setDateTo('');
   };
 
-  // Custom Tooltip for charts
   const CustomTooltip = ({ active, payload, label, deviceInfo }) => {
     if (active && payload && payload.length) {
       return (
@@ -494,12 +544,13 @@ const Dashboard = () => {
     return null;
   };
 
-  if (loading && Object.keys(deviceReadings).length === 0) {
+  // Show loading spinner while initial data is loading
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
           <FaSpinner className="animate-spin text-5xl text-purple-500 mx-auto mb-4" />
-          <p className="text-gray-600">Loading sensor data from external API...</p>
+          <p className="text-gray-600">Loading sensor data from ScanMyZone API...</p>
           {paginationInfo.total && (
             <p className="text-xs text-gray-400 mt-2">Fetching up to 100 records</p>
           )}
@@ -513,8 +564,7 @@ const Dashboard = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-800">Sensor Monitoring Dashboard</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Real-time environmental data from your registered devices</p>
+          <p className="text-gray-500 text-sm mt-0.5">Real-time environmental data from ScanMyZone API</p>
           <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
             <span><FaClock className="inline mr-1" /> Last update: {lastUpdate.toLocaleTimeString()}</span>
             <span>• {filteredDevices.length} devices</span>
@@ -525,8 +575,8 @@ const Dashboard = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          <button onClick={fetchSensorData} disabled={loading} className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg flex items-center gap-1.5 hover:bg-gray-50 transition-all disabled:opacity-50 text-sm">
-            <FaSpinner className={loading ? "animate-spin" : ""} /> Refresh
+          <button onClick={fetchSensorData} disabled={isSensorDataLoading} className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg flex items-center gap-1.5 hover:bg-gray-50 transition-all disabled:opacity-50 text-sm">
+            <FaSpinner className={isSensorDataLoading ? "animate-spin" : ""} /> Refresh
           </button>
           <button onClick={handleDownload} className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg flex items-center gap-1.5 hover:bg-gray-50 transition-all text-sm">
             <FaFileDownload /> Export
@@ -534,178 +584,191 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Filters Section */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-100 mb-4 overflow-hidden">
-        <div className="px-3 py-2 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 flex justify-between items-center">
-          <h2 className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
-            <FaFilter className="text-purple-500" />
-            Filters
-          </h2>
-          <button 
-            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            className="text-xs text-purple-600 hover:text-purple-700 font-medium"
-          >
-            {showAdvancedFilters ? 'Hide Advanced Filters' : 'Show Advanced Filters'}
-          </button>
+      {/* Filters Section - Show skeleton while loading */}
+      {isDynamicDataLoading ? (
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 mb-4 overflow-hidden animate-pulse">
+          <div className="px-3 py-2 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+            <div className="h-4 w-16 bg-gray-200 rounded"></div>
+          </div>
+          <div className="p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex-1 min-w-[160px]">
+                  <div className="h-3 w-10 bg-gray-200 rounded mb-0.5"></div>
+                  <div className="h-8 w-full bg-gray-200 rounded"></div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-        
-        <div className="p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Plant Filter */}
-            <div className="flex-1 min-w-[160px]">
-              <label className="block text-[10px] text-gray-500 mb-0.5">Plant</label>
-              <select
-                value={selectedPlant}
-                onChange={(e) => {
-                  setSelectedPlant(e.target.value);
-                  setSelectedZone('');
-                  setSelectedDevice('');
-                }}
-                className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300 bg-white"
-              >
-                <option value="">All Plants</option>
-                {plantsList.map(plant => (
-                  <option key={plant._id} value={plant._id}>{plant.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Zone Filter - depends on selected plant */}
-            <div className="flex-1 min-w-[160px]">
-              <label className="block text-[10px] text-gray-500 mb-0.5">Zone</label>
-              <select
-                value={selectedZone}
-                onChange={(e) => {
-                  setSelectedZone(e.target.value);
-                  setSelectedDevice('');
-                }}
-                className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300 bg-white"
-                disabled={!selectedPlant && zonesList.length === 0}
-              >
-                <option value="">All Zones</option>
-                {zonesList
-                  .filter(zone => !selectedPlant || zone.plantId === selectedPlant)
-                  .map(zone => (
-                    <option key={zone._id} value={zone._id}>{zone.name}</option>
-                  ))}
-              </select>
-            </div>
-
-            {/* Device Filter - depends on selected zone */}
-            <div className="flex-1 min-w-[160px]">
-              <label className="block text-[10px] text-gray-500 mb-0.5">Device</label>
-              <select
-                value={selectedDevice}
-                onChange={(e) => setSelectedDevice(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300 bg-white"
-                disabled={!selectedZone && filteredDevices.length === 0}
-              >
-                <option value="">All Devices</option>
-                {filteredDevices.map(device => (
-                  <option key={device._id} value={device._id}>{device.deviceId}</option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              onClick={handleResetFilters}
-              className="px-3 py-1.5 text-sm text-purple-600 hover:text-purple-700 font-medium border border-purple-200 rounded-lg hover:bg-purple-50 transition-all whitespace-nowrap mt-1"
+      ) : (
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 mb-4 overflow-hidden">
+          <div className="px-3 py-2 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 flex justify-between items-center">
+            <h2 className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+              <FaFilter className="text-purple-500" />
+              Filters
+            </h2>
+            <button 
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className="text-xs text-purple-600 hover:text-purple-700 font-medium"
             >
-              Reset
+              {showAdvancedFilters ? 'Hide Advanced Filters' : 'Show Advanced Filters'}
             </button>
           </div>
+          
+          <div className="p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex-1 min-w-[160px]">
+                <label className="block text-[10px] text-gray-500 mb-0.5">Plant</label>
+                <select
+                  value={selectedPlant}
+                  onChange={(e) => {
+                    setSelectedPlant(e.target.value);
+                    setSelectedZone('');
+                    setSelectedDevice('');
+                  }}
+                  className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300 bg-white"
+                >
+                  <option value="">All Plants</option>
+                  {plantsList.map(plant => (
+                    <option key={plant._id} value={plant._id}>{plant.name}</option>
+                  ))}
+                </select>
+              </div>
 
-          {/* Advanced Filters */}
-          {showAdvancedFilters && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <div>
-                  <label className="block text-[10px] text-gray-500 mb-0.5">State</label>
-                  <select
-                    value={selectedState}
-                    onChange={(e) => { setSelectedState(e.target.value); setSelectedCity(''); }}
-                    className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
-                  >
-                    <option value="">All States</option>
-                    {statesList.map(s => <option key={s}>{s}</option>)}
-                  </select>
+              <div className="flex-1 min-w-[160px]">
+                <label className="block text-[10px] text-gray-500 mb-0.5">Zone</label>
+                <select
+                  value={selectedZone}
+                  onChange={(e) => {
+                    setSelectedZone(e.target.value);
+                    setSelectedDevice('');
+                  }}
+                  className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300 bg-white"
+                  disabled={!selectedPlant && zonesList.length === 0}
+                >
+                  <option value="">All Zones</option>
+                  {zonesList
+                    .filter(zone => !selectedPlant || zone.plantId === selectedPlant)
+                    .map(zone => (
+                      <option key={zone._id} value={zone._id}>{zone.name}</option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="flex-1 min-w-[160px]">
+                <label className="block text-[10px] text-gray-500 mb-0.5">Device</label>
+                <select
+                  value={selectedDevice}
+                  onChange={(e) => setSelectedDevice(e.target.value)}
+                  className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300 bg-white"
+                  disabled={!selectedZone && filteredDevices.length === 0}
+                >
+                  <option value="">All Devices</option>
+                  {filteredDevices.map(device => (
+                    <option key={device._id} value={device._id}>{device.deviceId}</option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                onClick={handleResetFilters}
+                className="px-3 py-1.5 text-sm text-purple-600 hover:text-purple-700 font-medium border border-purple-200 rounded-lg hover:bg-purple-50 transition-all whitespace-nowrap mt-1"
+              >
+                Reset
+              </button>
+            </div>
+
+            {showAdvancedFilters && (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div>
+                    <label className="block text-[10px] text-gray-500 mb-0.5">State</label>
+                    <select
+                      value={selectedState}
+                      onChange={(e) => { setSelectedState(e.target.value); setSelectedCity(''); }}
+                      className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+                    >
+                      <option value="">All States</option>
+                      {statesList.map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 mb-0.5">City</label>
+                    <select
+                      value={selectedCity}
+                      onChange={(e) => setSelectedCity(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+                      disabled={!selectedState}
+                    >
+                      <option value="">All Cities</option>
+                      {selectedState && citiesByStateMap[selectedState]?.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 mb-0.5">Date From</label>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 mb-0.5">Date To</label>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] text-gray-500 mb-0.5">City</label>
-                  <select
-                    value={selectedCity}
-                    onChange={(e) => setSelectedCity(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
-                    disabled={!selectedState}
-                  >
-                    <option value="">All Cities</option>
-                    {selectedState && citiesByStateMap[selectedState]?.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] text-gray-500 mb-0.5">Date From</label>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-gray-500 mb-0.5">Date To</label>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-300"
-                  />
+                <p className="text-[10px] text-gray-400 mt-2">
+                  Note: Data is fetched from ScanMyZone API via backend proxy
+                </p>
+              </div>
+            )}
+
+            {(selectedPlant || selectedZone || selectedDevice || selectedState || selectedCity) && (
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedPlant && plantsList.find(p => p._id === selectedPlant) && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px]">
+                      Plant: {plantsList.find(p => p._id === selectedPlant)?.name}
+                      <button onClick={() => setSelectedPlant('')} className="hover:text-purple-900">×</button>
+                    </span>
+                  )}
+                  {selectedZone && zonesList.find(z => z._id === selectedZone) && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px]">
+                      Zone: {zonesList.find(z => z._id === selectedZone)?.name}
+                      <button onClick={() => setSelectedZone('')} className="hover:text-blue-900">×</button>
+                    </span>
+                  )}
+                  {selectedDevice && filteredDevices.find(d => d._id === selectedDevice) && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px]">
+                      Device: {filteredDevices.find(d => d._id === selectedDevice)?.deviceId}
+                      <button onClick={() => setSelectedDevice('')} className="hover:text-green-900">×</button>
+                    </span>
+                  )}
+                  {selectedState && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-[10px]">
+                      State: {selectedState}
+                      <button onClick={() => setSelectedState('')} className="hover:text-orange-900">×</button>
+                    </span>
+                  )}
+                  {selectedCity && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-pink-100 text-pink-700 rounded-full text-[10px]">
+                      City: {selectedCity}
+                      <button onClick={() => setSelectedCity('')} className="hover:text-pink-900">×</button>
+                    </span>
+                  )}
                 </div>
               </div>
-              <p className="text-[10px] text-gray-400 mt-2">
-                Note: Data is fetched from the external sensor API
-              </p>
-            </div>
-          )}
-
-          {/* Active Filters Display */}
-          {(selectedPlant || selectedZone || selectedDevice || selectedState || selectedCity) && (
-            <div className="mt-2 pt-2 border-t border-gray-100">
-              <div className="flex flex-wrap gap-1.5">
-                {selectedPlant && plantsList.find(p => p._id === selectedPlant) && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px]">
-                    Plant: {plantsList.find(p => p._id === selectedPlant)?.name}
-                    <button onClick={() => setSelectedPlant('')} className="hover:text-purple-900">×</button>
-                  </span>
-                )}
-                {selectedZone && zonesList.find(z => z._id === selectedZone) && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px]">
-                    Zone: {zonesList.find(z => z._id === selectedZone)?.name}
-                    <button onClick={() => setSelectedZone('')} className="hover:text-blue-900">×</button>
-                  </span>
-                )}
-                {selectedDevice && filteredDevices.find(d => d._id === selectedDevice) && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px]">
-                    Device: {filteredDevices.find(d => d._id === selectedDevice)?.deviceId}
-                    <button onClick={() => setSelectedDevice('')} className="hover:text-green-900">×</button>
-                  </span>
-                )}
-                {selectedState && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-[10px]">
-                    State: {selectedState}
-                    <button onClick={() => setSelectedState('')} className="hover:text-orange-900">×</button>
-                  </span>
-                )}
-                {selectedCity && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-pink-100 text-pink-700 rounded-full text-[10px]">
-                    City: {selectedCity}
-                    <button onClick={() => setSelectedCity('')} className="hover:text-pink-900">×</button>
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Parameters Selection Section */}
       <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-3 mb-4">
@@ -749,9 +812,15 @@ const Dashboard = () => {
         </p>
       </div>
 
-      {/* Device-wise Charts */}
+      {/* Device-wise Charts - Show skeletons while loading */}
       <div id="chart-container" className="space-y-6 mb-4">
-        {filteredDevices.length === 0 ? (
+        {isDynamicDataLoading || isSensorDataLoading ? (
+          // Show skeleton loaders
+          <>
+            <SkeletonLoader type="device" />
+            <SkeletonLoader type="device" />
+          </>
+        ) : filteredDevices.length === 0 ? (
           <div className="bg-white rounded-xl shadow-xl border border-gray-100 p-8 text-center">
             <FaMicrochip className="text-5xl text-gray-300 mx-auto mb-3" />
             <h3 className="text-base font-semibold text-gray-600 mb-1">No devices found</h3>
@@ -814,10 +883,8 @@ const Dashboard = () => {
                       );
                     }
                     
-                    // Use parameter-specific Y-axis domain
                     const yAxisDomain = param.yAxisDomain || ['auto', 'auto'];
                     
-                    // Get color for the line
                     const getLineColor = (color) => {
                       const colorMap = {
                         'orange': '#f97316',
@@ -832,7 +899,6 @@ const Dashboard = () => {
                       return colorMap[color] || '#6b7280';
                     };
                     
-                    // Device info for tooltip
                     const deviceInfo = {
                       deviceId: device.deviceId,
                       plantName: device.plantName,
@@ -912,7 +978,7 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Recent Readings Table */}
+      {/* Recent Readings Table - Show skeleton while loading */}
       <div className="bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden">
         <div className="px-4 py-2.5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
           <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
@@ -920,45 +986,51 @@ const Dashboard = () => {
             Recent Sensor Readings
           </h3>
           <p className="text-[10px] text-gray-500 mt-0.5">
-            Latest records from {filteredDevices.length} device{filteredDevices.length !== 1 ? 's' : ''}
+            {isDynamicDataLoading || isSensorDataLoading ? 'Loading...' : 
+              `Latest records from ${filteredDevices.length} device${filteredDevices.length !== 1 ? 's' : ''}`}
           </p>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[600px]">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Device ID</th>
-                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Plant</th>
-                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Zone</th>
-                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Time</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredDevices.slice(0, 10).map((device) => {
-                const readings = getDeviceReadings(device.deviceId);
-                const latestReading = readings[readings.length - 1];
-                
-                return (
-                  <tr key={device._id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-3 py-2 text-[11px] font-mono text-gray-700">{device.deviceId}</td>
-                    <td className="px-3 py-2 text-[11px] text-gray-600">{device.plantName}</td>
-                    <td className="px-3 py-2 text-[11px] text-gray-600">{device.zoneName}</td>
-                    <td className="px-3 py-2 text-[10px] text-gray-500">
-                      {latestReading?.timestamp ? new Date(latestReading.timestamp).toLocaleString() : 'No data'}
+        
+        {isDynamicDataLoading || isSensorDataLoading ? (
+          <SkeletonLoader type="table" />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[600px]">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Device ID</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Plant</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Zone</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600">Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredDevices.slice(0, 10).map((device) => {
+                  const readings = getDeviceReadings(device.deviceId);
+                  const latestReading = readings[readings.length - 1];
+                  
+                  return (
+                    <tr key={device._id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-3 py-2 text-[11px] font-mono text-gray-700">{device.deviceId}</td>
+                      <td className="px-3 py-2 text-[11px] text-gray-600">{device.plantName}</td>
+                      <td className="px-3 py-2 text-[11px] text-gray-600">{device.zoneName}</td>
+                      <td className="px-3 py-2 text-[10px] text-gray-500">
+                        {latestReading?.timestamp ? new Date(latestReading.timestamp).toLocaleString() : 'No data'}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filteredDevices.length === 0 && (
+                  <tr>
+                    <td colSpan="4" className="px-3 py-4 text-center text-gray-500 text-sm">
+                      No devices found. Please add devices from the "Add Device" page.
                     </td>
                   </tr>
-                );
-              })}
-              {filteredDevices.length === 0 && (
-                <tr>
-                  <td colSpan="4" className="px-3 py-4 text-center text-gray-500 text-sm">
-                    No devices found. Please add devices from the "Add Device" page.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
         {error && (
           <div className="p-3 bg-red-50 border-t border-red-200">
             <p className="text-red-600 text-xs flex items-center gap-1.5">
