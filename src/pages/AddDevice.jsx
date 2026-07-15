@@ -140,16 +140,16 @@ const AddDevice = () => {
   };
 
   // Check if device already exists in ANY zone for this user
-  const checkDeviceExistsInAnyZone = async (deviceId) => {
-    try {
-      const response = await api.get(`/devices/validate/${deviceId}`);
-      const result = response.data || response;
-      return result.data;
-    } catch (error) {
-      console.error('Error checking device existence:', error);
-      return { exists: false, device: null, zoneName: null };
-    }
-  };
+ const checkDeviceExistsInAnyZone = async (deviceId) => {
+  try {
+    const response = await api.validateDeviceId(deviceId); // ← was api.get(`/devices/validate/${deviceId}`)
+    const result = response.data || response;
+    return result.data;
+  } catch (error) {
+    console.error('Error checking device existence:', error);
+    return { exists: false, device: null, zoneName: null };
+  }
+};
 
   // Validate Device ID against ScanMyZone API and check for duplicates
   const validateDeviceId = async () => {
